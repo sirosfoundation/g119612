@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/SUNET/g119612/pkg/etsi119612"
+	"github.com/sirosfoundation/g119612/pkg/etsi119612"
 )
 
 var Version = "1.0.0"

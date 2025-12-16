@@ -32,6 +32,7 @@ build:  ## build the library
 .PHONY: clean
 clean: ## remove temporary files
 	go clean
+	rm -f *.out *.log
 
 .PHONY: realclean
 realclean: ## remove generated files - requires "make gen"
