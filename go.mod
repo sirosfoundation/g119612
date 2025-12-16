@@ -1,4 +1,4 @@
-module github.com/SUNET/g119612
+module github.com/sirosfoundation/g119612
 
 go 1.23.0
 

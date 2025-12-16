@@ -1,7 +1,7 @@
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/SUNET/g119612.svg)](https://pkg.go.dev/github.com/SUNET/g119612)
-[![Go Report Card](https://goreportcard.com/badge/github.com/SUNET/g119612)](https://goreportcard.com/report/github.com/SUNET/g119612)
-![coverage](https://raw.githubusercontent.com/SUNET/g119612/badges/.badges/main/coverage.svg)
+[![Go Reference](https://pkg.go.dev/badge/github.com/sirosfoundation/g119612.svg)](https://pkg.go.dev/github.com/sirosfoundation/g119612)
+[![Go Report Card](https://goreportcard.com/badge/github.com/sirosfoundation/g119612)](https://goreportcard.com/report/github.com/sirosfoundation/g119612)
+![coverage](https://raw.githubusercontent.com/sirosfoundation/g119612/badges/.badges/main/coverage.svg)
 [![License](https://img.shields.io/badge/License-BSD_2--Clause-orange.svg)](https://opensource.org/licenses/BSD-2-Clause)
 
 # golang ETSI trust status lists (aka ETSI 119 612 v2)
@@ -17,7 +17,7 @@ The example below assumes you have imported the crypto/x509 and etsi119612 modul
 First step: fetch and create a TSL object
 ```go
     import (
-        "github.com/SUNET/g119612/pkg/etsi119612"
+        "github.com/sirosfoundation/g119612/pkg/etsi119612"
     )
 
     tsl, err := etsi119612.FetchTSL("https://example.com/some-tsl.xml")

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/SUNET/g119612/pkg/etsi119612"
+	"github.com/sirosfoundation/g119612/pkg/etsi119612"
 	"github.com/h2non/gock"
 	"github.com/stretchr/testify/assert"
 )
@@ -260,7 +260,7 @@ func TestFetchTSLWithOptions_ErrorHandling(t *testing.T) {
 func TestFetchTSLWithReferences_BackwardCompatibility(t *testing.T) {
 	defer gock.Off()
 
-	defaultUserAgent := "Go-Trust/1.0 TSL Fetcher (+https://github.com/SUNET/go-trust)"
+	defaultUserAgent := "Go-Trust/1.0 TSL Fetcher (+https://github.com/sirosfoundation/go-trust)"
 
 	// Setup mock for main TSL
 	gock.New("https://example.com").

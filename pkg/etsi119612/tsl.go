@@ -107,7 +107,7 @@ type TSLFetchOptions struct {
 
 // DefaultTSLFetchOptions provides reasonable default options for fetching TSLs
 var DefaultTSLFetchOptions = TSLFetchOptions{
-	UserAgent:           "Go-Trust/1.0 TSL Fetcher (+https://github.com/SUNET/go-trust)",
+	UserAgent:           "Go-Trust/1.0 TSL Fetcher (+https://github.com/sirosfoundation/go-trust)",
 	Timeout:             30 * time.Second,
 	MaxDereferenceDepth: 3,                                                                                                // Follow references up to 3 levels deep by default
 	AcceptHeaders:       []string{"application/xml", "text/xml", "application/xhtml+xml", "text/html;q=0.9", "*/*;q=0.8"}, // Prefer XML content
