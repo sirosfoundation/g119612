@@ -15,16 +15,16 @@
 //
 // The pipeline consists of a sequence of steps defined in a YAML file:
 //
-//	- load:
-//	    - https://example.com/tsl.xml
-//	- transform:
-//	    - embedded:tsl-to-html.xslt
-//	    - /output/html
-//	    - html
-//	- select:
-//	    - reference-depth:2
-//	- publish:
-//	    - /output/xml
+//   - load:
+//   - https://example.com/tsl.xml
+//   - transform:
+//   - embedded:tsl-to-html.xslt
+//   - /output/html
+//   - html
+//   - select:
+//   - reference-depth:2
+//   - publish:
+//   - /output/xml
 //
 // # Available Pipeline Steps
 //
