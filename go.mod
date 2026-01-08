@@ -4,7 +4,7 @@ go 1.25.1
 
 require (
 	github.com/PuerkitoBio/goquery v1.10.3
-	github.com/ThalesGroup/crypto11 v1.2.6
+	github.com/ThalesGroup/crypto11 v1.4.1
 	github.com/beevik/etree v1.5.1
 	github.com/h2non/gock v1.2.0
 	github.com/moov-io/signedxml v1.2.3
@@ -27,4 +27,4 @@ require (
 	golang.org/x/sys v0.32.0 // indirect
 )
 
-replace github.com/moov-io/signedxml v1.2.3 => github.com/leifj/signedxml v1.2.3-leifj2
+replace github.com/moov-io/signedxml v1.2.3 => github.com/leifj/signedxml v1.2.3-leifj3
