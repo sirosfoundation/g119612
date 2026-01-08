@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tsl:TrustServiceStatusList xmlns:tsl="http://uri.etsi.org/02231/v2#">
+  <tsl:SchemeInformation>
+    <tsl:TSLSequenceNumber>1</tsl:TSLSequenceNumber>
+    <tsl:TSLType>http://uri.etsi.org/TrstSvc/TrustedList/TSLType/CA/QC</tsl:TSLType>
+    <tsl:SchemeOperatorName>
+      <tsl:Name xml:lang="en">Test Operator</tsl:Name>
+    </tsl:SchemeOperatorName>
+  </tsl:SchemeInformation>
+  <tsl:TrustServiceProviderList>
+    <tsl:TrustServiceProvider>
+      <tsl:TSPInformation>
+        <tsl:TSPName>
+          <tsl:Name xml:lang="en">Test Provider</tsl:Name>
+        </tsl:TSPName>
+      </tsl:TSPInformation>
+      <tsl:TSPServices>
+        <tsl:TSPService>
+          <tsl:ServiceInformation>
+            <tsl:ServiceTypeIdentifier>http://uri.etsi.org/TrstSvc/Svctype/CA/QC</tsl:ServiceTypeIdentifier>
+            <tsl:ServiceName>
+              <tsl:Name xml:lang="en">Test Service</tsl:Name>
+            </tsl:ServiceName>
+            <tsl:ServiceStatus>https://uri.etsi.org/TrstSvc/TrustedList/Svcstatus/granted/</tsl:ServiceStatus>
+            <tsl:StatusStartingTime>2025-10-01T00:00:00Z</tsl:StatusStartingTime>
+            <tsl:ServiceDigitalIdentity>
+              <tsl:DigitalId>
+                <tsl:X509Certificate>{{.X509Certificate}}</tsl:X509Certificate>
+              </tsl:DigitalId>
+            </tsl:ServiceDigitalIdentity>
+          </tsl:ServiceInformation>
+        </tsl:TSPService>
+      </tsl:TSPServices>
+    </tsl:TrustServiceProvider>
+  </tsl:TrustServiceProviderList>
+</tsl:TrustServiceStatusList>

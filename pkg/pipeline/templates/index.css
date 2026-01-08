@@ -1,0 +1,272 @@
+:root {
+    --badge-qualified-bg: #27ae60;
+    --badge-nonqualified-bg: #f39c12;
+    --badge-info-bg: #3498db;
+}
+
+body {
+    padding-bottom: 2rem;
+}
+
+.container {
+    max-width: 1400px;
+}
+
+/* Header Improvements */
+header {
+    margin-bottom: 2rem;
+}
+
+header h1 {
+    margin-bottom: 1rem;
+    font-size: 2rem;
+}
+
+/* Stats Cards */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.stat-card {
+    padding: 1rem;
+    border-radius: 8px;
+    background-color: var(--card-background-color);
+    border: 1px solid var(--card-border-color);
+    text-align: center;
+}
+
+.stat-card .number {
+    font-size: 2rem;
+    font-weight: bold;
+    color: var(--primary);
+    margin-bottom: 0.25rem;
+}
+
+.stat-card .label {
+    font-size: 0.9rem;
+    color: var(--muted-color);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Search and Filter */
+.controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    align-items: center;
+}
+
+.controls input[type="search"] {
+    flex: 1;
+    min-width: 250px;
+    margin-bottom: 0;
+}
+
+.controls select {
+    min-width: 150px;
+    margin-bottom: 0;
+}
+
+.theme-toggle {
+    padding: 0.5rem 1rem;
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.theme-toggle:hover {
+    opacity: 0.9;
+}
+
+/* Badge Styles */
+.badge {
+    display: inline-block;
+    padding: 0.25rem 0.6rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-right: 0.5rem;
+    white-space: nowrap;
+}
+
+.badge-country {
+    background-color: var(--primary);
+    color: white;
+}
+
+/* Responsive Table */
+.table-wrapper {
+    overflow-x: auto;
+    margin-bottom: 2rem;
+    border-radius: 8px;
+    border: 1px solid var(--card-border-color);
+}
+
+table {
+    margin-bottom: 0;
+    width: 100%;
+    table-layout: auto;
+}
+
+table th {
+    position: sticky;
+    top: 0;
+    background-color: var(--card-background-color);
+    z-index: 10;
+    white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+    padding: 0.75rem 0.5rem;
+}
+
+table th:hover {
+    background-color: var(--primary-hover);
+}
+
+table th::after {
+    content: ' ⇅';
+    opacity: 0.3;
+    font-size: 0.8em;
+}
+
+table th.sort-asc::after {
+    content: ' ↑';
+    opacity: 1;
+}
+
+table th.sort-desc::after {
+    content: ' ↓';
+    opacity: 1;
+}
+
+table td {
+    vertical-align: middle;
+    padding: 0.75rem 0.5rem;
+}
+
+/* Optimize column widths for compact display */
+table th:nth-child(1), table td:nth-child(1) {
+    min-width: 15rem; /* Territory */
+}
+table th:nth-child(2), table td:nth-child(2) {
+    width: 4rem; /* Seq # */
+    text-align: center;
+}
+table th:nth-child(3), table td:nth-child(3),
+table th:nth-child(4), table td:nth-child(4) {
+    width: 7rem; /* Dates */
+    font-size: 0.9rem;
+}
+table th:nth-child(5), table td:nth-child(5) {
+    width: 5rem; /* Services */
+    text-align: center;
+}
+
+table tbody tr {
+    transition: background-color 0.2s;
+}
+
+table tbody tr:hover {
+    background-color: var(--primary-hover);
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 768px) {
+    .container {
+        padding: 1rem;
+    }
+
+    header h1 {
+        font-size: 1.5rem;
+    }
+
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .stat-card .number {
+        font-size: 1.5rem;
+    }
+
+    .controls {
+        flex-direction: column;
+    }
+
+    .controls input[type="search"],
+    .controls select {
+        width: 100%;
+    }
+
+    /* Compact table on mobile */
+    table {
+        font-size: 0.85rem;
+    }
+
+    table th,
+    table td {
+        padding: 0.5rem 0.25rem;
+    }
+
+    table th:nth-child(1),
+    table td:nth-child(1) {
+        min-width: 12rem;
+    }
+
+    table th:nth-child(2),
+    table td:nth-child(2),
+    table th:nth-child(5),
+    table td:nth-child(5) {
+        width: 3.5rem;
+    }
+
+    table th:nth-child(3),
+    table td:nth-child(3),
+    table th:nth-child(4),
+    table td:nth-child(4) {
+        width: 6rem;
+        font-size: 0.75rem;
+    }
+
+    .badge {
+        font-size: 0.7rem;
+        padding: 0.2rem 0.4rem;
+    }
+
+    .tsl-title {
+        font-size: 0.85rem;
+    }
+}
+
+/* Dark mode compatibility */
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        --badge-qualified-bg: #27ae60;
+        --badge-nonqualified-bg: #f39c12;
+        --badge-info-bg: #3498db;
+    }
+}
+
+/* Loading/Empty State */
+.empty-state {
+    text-align: center;
+    padding: 3rem;
+    color: var(--muted-color);
+}
+
+/* Footer */
+footer {
+    margin-top: 3rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--card-border-color);
+    text-align: center;
+    color: var(--muted-color);
+    font-size: 0.9rem;
+}
