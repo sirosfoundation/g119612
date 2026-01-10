@@ -27,4 +27,6 @@ require (
 	golang.org/x/sys v0.32.0 // indirect
 )
 
-replace github.com/moov-io/signedxml v1.2.3 => github.com/leifj/signedxml v1.2.3-leifj4
+replace github.com/moov-io/signedxml v1.2.3 => github.com/leifj/signedxml v1.2.3-leifj6
+
+replace github.com/russellhaering/goxmldsig v1.5.0 => github.com/sirosfoundation/goxmldsig v1.5.0-leifj1
