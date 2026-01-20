@@ -382,6 +382,8 @@ func GenerateTSL(pl *Pipeline, ctx *Context, args ...string) (*Context, error) {
 
 	tsl := &etsi119612.TSL{
 		StatusList: etsi119612.TrustStatusListType{
+			TSLTagAttr: "http://uri.etsi.org/19612/TSLTag",
+			IdAttr:     "TSL-001",
 			TslSchemeInformation: &etsi119612.TSLSchemeInformationType{
 				TSLVersionIdentifier: int(schemeMetadata.SequenceNumber),
 				TslTSLType:           schemeMetadata.Type,

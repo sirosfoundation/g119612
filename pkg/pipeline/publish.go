@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/sirosfoundation/g119612/pkg/etsi119612"
 	"github.com/sirosfoundation/g119612/pkg/dsig"
+	"github.com/sirosfoundation/g119612/pkg/etsi119612"
 	"github.com/sirosfoundation/g119612/pkg/logging"
 )
 
@@ -58,12 +58,27 @@ func publishTSLToFile(pl *Pipeline, tsl *etsi119612.TSL, filePath string, signer
 		return fmt.Errorf("cannot publish nil TSL")
 	}
 
-	// Create XML representation with root element
+	// Create XML representation with root element and proper namespaces
 	type TrustStatusListWrapper struct {
-		XMLName xml.Name                       `xml:"TrustServiceStatusList"`
-		List    etsi119612.TrustStatusListType `xml:",innerxml"`
+		XMLName    xml.Name `xml:"TrustServiceStatusList"`
+		Xmlns      string   `xml:"xmlns,attr"`
+		XmlnsDs    string   `xml:"xmlns:ns2,attr"`
+		XmlnsXades string   `xml:"xmlns:ns6,attr"`
+		TSLTag     string   `xml:"TSLTag,attr,omitempty"`
+		ID         string   `xml:"Id,attr,omitempty"`
+		etsi119612.TrustStatusListType
 	}
-	wrapper := TrustStatusListWrapper{List: tsl.StatusList}
+	wrapper := TrustStatusListWrapper{
+		Xmlns:               "http://uri.etsi.org/02231/v2#",
+		XmlnsDs:             "http://www.w3.org/2000/09/xmldsig#",
+		XmlnsXades:          "http://uri.etsi.org/01903/v1.4.1#",
+		TSLTag:              tsl.StatusList.TSLTagAttr,
+		ID:                  tsl.StatusList.IdAttr,
+		TrustStatusListType: tsl.StatusList,
+	}
+	// Clear the embedded attrs to avoid duplication
+	wrapper.TrustStatusListType.TSLTagAttr = ""
+	wrapper.TrustStatusListType.IdAttr = ""
 	xmlData, err := xml.MarshalIndent(wrapper, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal TSL to XML: %w", err)
