@@ -11,4 +11,10 @@ func init() {
 	RegisterFunction("publish", PublishTSL)
 	RegisterFunction("log", Log)
 	RegisterFunction("set-fetch-options", SetFetchOptions)
+
+	// LoTE (ETSI TS 119 602) steps
+	RegisterFunction("load-lote", LoadLoTE)
+	RegisterFunction("generate-lote", GenerateLoTE)
+	RegisterFunction("publish-lote", PublishLoTE)
+	// convert-to-lote is registered via its own init() in step_convert_lote.go
 }

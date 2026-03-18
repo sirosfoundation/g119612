@@ -4,6 +4,7 @@ import (
 	"crypto/x509"
 	"time"
 
+	"github.com/sirosfoundation/g119612/pkg/etsi119602"
 	"github.com/sirosfoundation/g119612/pkg/etsi119612"
 	"github.com/sirosfoundation/g119612/pkg/utils"
 )
@@ -12,11 +13,12 @@ import (
 // It contains Trust Status Lists (TSLs) and certificate pools that are created,
 // modified, and consumed by different pipeline steps.
 type Context struct {
-	TSLTrees        *utils.Stack[*TSLTree]        // A stack of TSL trees, where each tree represents a loaded root TSL and its references
-	TSLs            *utils.Stack[*etsi119612.TSL] // DEPRECATED: Legacy stack of TSLs for backward compatibility
-	CertPool        *x509.CertPool                // Certificate pool for trust verification
-	Data            map[string]any                // Data store for sharing information between pipeline steps
-	TSLFetchOptions *etsi119612.TSLFetchOptions   // Options for fetching Trust Status Lists
+	TSLTrees        *utils.Stack[*TSLTree]                          // A stack of TSL trees, where each tree represents a loaded root TSL and its references
+	TSLs            *utils.Stack[*etsi119612.TSL]                   // DEPRECATED: Legacy stack of TSLs for backward compatibility
+	LoTEs           *utils.Stack[*etsi119602.ListOfTrustedEntities] // Stack of LoTE (List of Trusted Entities) documents
+	CertPool        *x509.CertPool                                  // Certificate pool for trust verification
+	Data            map[string]any                                  // Data store for sharing information between pipeline steps
+	TSLFetchOptions *etsi119612.TSLFetchOptions                     // Options for fetching Trust Status Lists
 }
 
 // EnsureTSLTrees ensures that the TSL tree stack is initialized.
@@ -203,6 +205,14 @@ func (ctx *Context) Copy() *Context {
 	// Share the TSLFetchOptions reference
 	newCtx.TSLFetchOptions = ctx.TSLFetchOptions
 
+	// Copy LoTEs stack if it exists
+	if ctx.LoTEs != nil {
+		lotes := ctx.LoTEs.ToSlice()
+		for i := len(lotes) - 1; i >= 0; i-- {
+			newCtx.LoTEs.Push(lotes[i])
+		}
+	}
+
 	return newCtx
 }
 
@@ -216,6 +226,7 @@ func NewContext() *Context {
 	return &Context{
 		TSLTrees: utils.NewStack[*TSLTree](),
 		TSLs:     utils.NewStack[*etsi119612.TSL](),
+		LoTEs:    utils.NewStack[*etsi119602.ListOfTrustedEntities](),
 		Data:     make(map[string]any),
 	}
 }
@@ -242,4 +253,38 @@ func (ctx *Context) GetTSLCount() int {
 		return 0
 	}
 	return ctx.TSLs.Size()
+}
+
+// EnsureLoTEs ensures that the LoTE stack is initialized.
+func (ctx *Context) EnsureLoTEs() *Context {
+	if ctx.LoTEs == nil {
+		ctx.LoTEs = utils.NewStack[*etsi119602.ListOfTrustedEntities]()
+	}
+	return ctx
+}
+
+// AddLoTE adds a LoTE document to the stack.
+func (ctx *Context) AddLoTE(lote *etsi119602.ListOfTrustedEntities) *Context {
+	if lote == nil {
+		return ctx
+	}
+	ctx.EnsureLoTEs()
+	ctx.LoTEs.Push(lote)
+	return ctx
+}
+
+// GetLoTEs returns all LoTEs from the context as a slice.
+func (ctx *Context) GetLoTEs() []*etsi119602.ListOfTrustedEntities {
+	if ctx.LoTEs == nil {
+		return nil
+	}
+	return ctx.LoTEs.ToSlice()
+}
+
+// GetLoTECount returns the number of loaded LoTEs.
+func (ctx *Context) GetLoTECount() int {
+	if ctx.LoTEs == nil {
+		return 0
+	}
+	return ctx.LoTEs.Size()
 }
