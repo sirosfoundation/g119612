@@ -12,10 +12,10 @@ import (
 //
 // Usage in pipeline YAML:
 //
-//	- load-lote:
-//	    - https://example.com/lote.json
-//	- load-lote:
-//	    - /path/to/lote.json
+//   - load-lote:
+//   - https://example.com/lote.json
+//   - load-lote:
+//   - /path/to/lote.json
 func LoadLoTE(pl *Pipeline, ctx *Context, args ...string) (*Context, error) {
 	if len(args) < 1 {
 		return nil, fmt.Errorf("load-lote requires 1 argument: URL or file path")

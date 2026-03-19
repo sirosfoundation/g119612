@@ -15,10 +15,10 @@ import (
 //
 // Usage in pipeline YAML:
 //
-//	- publish-lote:
-//	    - /path/to/output/dir                          # unsigned JSON
-//	- publish-lote:
-//	    - ["/path/to/dir", "/cert.pem", "/key.pem"]   # JWS-signed
+//   - publish-lote:
+//   - /path/to/output/dir                          # unsigned JSON
+//   - publish-lote:
+//   - ["/path/to/dir", "/cert.pem", "/key.pem"]   # JWS-signed
 func PublishLoTE(pl *Pipeline, ctx *Context, args ...string) (*Context, error) {
 	if len(args) < 1 {
 		return nil, fmt.Errorf("publish-lote requires at least 1 argument: output directory")

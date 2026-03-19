@@ -25,10 +25,10 @@ type LoTESchemeMetadata struct {
 
 // LoTEEntityMetadata represents the YAML structure for a trusted entity.
 type LoTEEntityMetadata struct {
-	Names      []MultiLangName `yaml:"names"`
-	EntityID   string          `yaml:"entityId"`
-	EntityType string          `yaml:"entityType,omitempty"`
-	Status     string          `yaml:"status"`
+	Names      []MultiLangName       `yaml:"names"`
+	EntityID   string                `yaml:"entityId"`
+	EntityType string                `yaml:"entityType,omitempty"`
+	Status     string                `yaml:"status"`
 	Services   []LoTEServiceMetadata `yaml:"services,omitempty"`
 }
 

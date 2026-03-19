@@ -74,11 +74,11 @@ func TestPublishLoTE_MultipleLoTEs(t *testing.T) {
 
 	ctx := NewContext()
 	ctx.AddLoTE(&etsi119602.ListOfTrustedEntities{
-		Version: "1.0",
+		Version:           "1.0",
 		SchemeInformation: etsi119602.SchemeInformation{Territory: "SE"},
 	})
 	ctx.AddLoTE(&etsi119602.ListOfTrustedEntities{
-		Version: "1.0",
+		Version:           "1.0",
 		SchemeInformation: etsi119602.SchemeInformation{Territory: "NO"},
 	})
 

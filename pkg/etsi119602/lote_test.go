@@ -75,9 +75,9 @@ func TestLoTEPointers(t *testing.T) {
 	lote := &ListOfTrustedEntities{
 		Version: LoTEVersion,
 		SchemeInformation: SchemeInformation{
-			SchemeType: "http://example.com/lolote",
+			SchemeType:     "http://example.com/lolote",
 			SchemeOperator: NameSet{{Language: "en", Value: "EU"}},
-			IssueDate:  time.Now().UTC(),
+			IssueDate:      time.Now().UTC(),
 		},
 		PointersToOtherLoTEs: []LoTEPointer{
 			{Location: "https://se.example.com/lote.json", SchemeTerritory: "SE"},

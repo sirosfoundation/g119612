@@ -12,9 +12,9 @@ import (
 //
 // Usage in pipeline YAML:
 //
-//	- load:
-//	    - https://example.com/tsl.xml
-//	- convert-to-lote:
+//   - load:
+//   - https://example.com/tsl.xml
+//   - convert-to-lote:
 func ConvertTSLToLoTE(pl *Pipeline, ctx *Context, args ...string) (*Context, error) {
 	if ctx.TSLs == nil || ctx.TSLs.Size() == 0 {
 		return nil, fmt.Errorf("no TSLs in context to convert")
