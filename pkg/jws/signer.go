@@ -99,6 +99,19 @@ func NewCertVerifier(certs ...*x509.Certificate) *KeyVerifier {
 	return &KeyVerifier{keys: keys}
 }
 
+// NewCertFileVerifier creates a verifier from a PEM certificate file.
+func NewCertFileVerifier(certFile string) (*KeyVerifier, error) {
+	pemData, err := os.ReadFile(certFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read cert file %s: %w", certFile, err)
+	}
+	certs, err := parseCertificates(pemData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse certificates: %w", err)
+	}
+	return NewCertVerifier(certs...), nil
+}
+
 // Verify verifies a compact JWS and returns the payload.
 func (v *KeyVerifier) Verify(compact string) ([]byte, error) {
 	obj, err := jose.ParseSigned(compact, []jose.SignatureAlgorithm{

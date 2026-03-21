@@ -137,3 +137,59 @@ func TestFetchLoTE_HTTPUnreachable(t *testing.T) {
 	_, err := FetchLoTE("http://127.0.0.1:1/unreachable", nil)
 	assert.Error(t, err)
 }
+
+func TestFetchLoTE_ContentTypeHTML(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Write([]byte("<html>not json</html>"))
+	}))
+	defer srv.Close()
+
+	_, err := FetchLoTE(srv.URL+"/bad", nil)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "Content-Type")
+}
+
+func TestFetchLoTE_ContentTypeJOSE(t *testing.T) {
+	lote := &ListOfTrustedEntities{Version: "1.0"}
+	data, err := json.Marshal(lote)
+	require.NoError(t, err)
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/jose")
+		w.Write(data)
+	}))
+	defer srv.Close()
+
+	result, err := FetchLoTE(srv.URL+"/lote.jose", nil)
+	require.NoError(t, err)
+	assert.Equal(t, "1.0", result.Version)
+}
+
+func TestFetchLoTE_ContentTypeOctetStream(t *testing.T) {
+	lote := &ListOfTrustedEntities{Version: "1.0"}
+	data, err := json.Marshal(lote)
+	require.NoError(t, err)
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/octet-stream")
+		w.Write(data)
+	}))
+	defer srv.Close()
+
+	result, err := FetchLoTE(srv.URL+"/lote", nil)
+	require.NoError(t, err)
+	assert.Equal(t, "1.0", result.Version)
+}
+
+func TestFetchLoTE_ContentTypeXML(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/xml")
+		w.Write([]byte("<xml/>"))
+	}))
+	defer srv.Close()
+
+	_, err := FetchLoTE(srv.URL+"/bad", nil)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "Content-Type")
+}

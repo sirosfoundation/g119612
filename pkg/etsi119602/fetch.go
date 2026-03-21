@@ -20,6 +20,11 @@ type FetchOptions struct {
 	HTTPClient *http.Client
 }
 
+// JWSVerifier verifies JWS compact serializations and returns the payload.
+type JWSVerifier interface {
+	Verify(compact string) ([]byte, error)
+}
+
 // FetchLoTE fetches and parses a LoTE from a URL or file path.
 // File paths are detected by the "file://" prefix or absence of "://".
 func FetchLoTE(location string, opts *FetchOptions) (*ListOfTrustedEntities, error) {
@@ -33,7 +38,28 @@ func FetchLoTE(location string, opts *FetchOptions) (*ListOfTrustedEntities, err
 	return fetchLoTEFromURL(location, opts)
 }
 
+// FetchAndVerifyLoTE fetches a JWS-signed LoTE, verifies the signature, and returns the payload.
+func FetchAndVerifyLoTE(location string, opts *FetchOptions, verifier JWSVerifier) (*ListOfTrustedEntities, error) {
+	data, err := fetchRawFromURL(location, opts)
+	if err != nil {
+		return nil, err
+	}
+	payload, err := verifier.Verify(string(data))
+	if err != nil {
+		return nil, fmt.Errorf("JWS verification failed for %s: %w", location, err)
+	}
+	return ParseLoTE(payload)
+}
+
 func fetchLoTEFromURL(url string, opts *FetchOptions) (*ListOfTrustedEntities, error) {
+	body, err := fetchRawFromURL(url, opts)
+	if err != nil {
+		return nil, err
+	}
+	return ParseLoTE(body)
+}
+
+func fetchRawFromURL(url string, opts *FetchOptions) ([]byte, error) {
 	client := &http.Client{Timeout: 30 * time.Second}
 	if opts != nil {
 		if opts.HTTPClient != nil {
@@ -62,10 +88,21 @@ func fetchLoTEFromURL(url string, opts *FetchOptions) (*ListOfTrustedEntities, e
 		return nil, fmt.Errorf("unexpected status %d fetching %s", resp.StatusCode, url)
 	}
 
+	// Warn-level check: reject responses that are clearly not JSON or JWS
+	ct := resp.Header.Get("Content-Type")
+	if ct != "" {
+		ct = strings.ToLower(strings.SplitN(ct, ";", 2)[0])
+		ct = strings.TrimSpace(ct)
+		if ct != "application/json" && ct != "application/jose" &&
+			ct != "text/plain" && ct != "application/octet-stream" && ct != "" {
+			return nil, fmt.Errorf("unexpected Content-Type %q fetching %s", ct, url)
+		}
+	}
+
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 10*1024*1024)) // 10MB limit
 	if err != nil {
 		return nil, fmt.Errorf("failed to read LoTE response from %s: %w", url, err)
 	}
 
-	return ParseLoTE(body)
+	return body, nil
 }

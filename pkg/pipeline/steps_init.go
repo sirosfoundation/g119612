@@ -16,5 +16,7 @@ func init() {
 	RegisterFunction("load-lote", LoadLoTE)
 	RegisterFunction("generate-lote", GenerateLoTE)
 	RegisterFunction("publish-lote", PublishLoTE)
+	RegisterFunction("increment-lote-sequence", IncrementLoTESequence)
 	// convert-to-lote is registered via its own init() in step_convert_lote.go
+	// merge-lote is registered via its own init() in step_merge_lote.go
 }

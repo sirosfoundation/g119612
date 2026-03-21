@@ -3,6 +3,8 @@ package pipeline
 import (
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -166,10 +168,8 @@ func loadLoTEEntity(entityDir string) (*etsi119602.TrustedEntity, error) {
 			if err != nil {
 				return nil, fmt.Errorf("failed to read certificate %s: %w", name, err)
 			}
-			// Try parsing as raw DER first (g119612 convention), then PEM
-			cert, err := x509.ParseCertificate(certData)
+			cert, err := parseCertificateFile(certData)
 			if err != nil {
-				// Not raw DER, try PEM ... but for LoTE we just base64 the raw
 				return nil, fmt.Errorf("failed to parse certificate %s: %w", name, err)
 			}
 			entity.DigitalIdentities = append(entity.DigitalIdentities, etsi119602.DigitalIdentity{
@@ -183,12 +183,29 @@ func loadLoTEEntity(entityDir string) (*etsi119602.TrustedEntity, error) {
 				return nil, fmt.Errorf("failed to read JWK %s: %w", name, err)
 			}
 			var jwk map[string]any
-			if err := yaml.Unmarshal(jwkData, &jwk); err != nil {
-				return nil, fmt.Errorf("failed to parse JWK %s: %w", name, err)
+			if err := json.Unmarshal(jwkData, &jwk); err != nil {
+				// Fall back to YAML parsing for YAML-formatted JWK files
+				if err2 := yaml.Unmarshal(jwkData, &jwk); err2 != nil {
+					return nil, fmt.Errorf("failed to parse JWK %s: %w", name, err)
+				}
 			}
 			entity.DigitalIdentities = append(entity.DigitalIdentities, etsi119602.DigitalIdentity{
 				Type: "jwk",
 				JWK:  jwk,
+			})
+
+		case strings.HasSuffix(name, ".did"):
+			didData, err := os.ReadFile(path)
+			if err != nil {
+				return nil, fmt.Errorf("failed to read DID %s: %w", name, err)
+			}
+			did := strings.TrimSpace(string(didData))
+			if !strings.HasPrefix(did, "did:") {
+				return nil, fmt.Errorf("invalid DID in %s: must start with 'did:'", name)
+			}
+			entity.DigitalIdentities = append(entity.DigitalIdentities, etsi119602.DigitalIdentity{
+				Type: "did",
+				DID:  did,
 			})
 		}
 	}
@@ -214,4 +231,24 @@ func multiLangToNameSet(names []MultiLangName) etsi119602.NameSet {
 		ns[i] = etsi119602.LangString{Language: n.Language, Value: n.Value}
 	}
 	return ns
+}
+
+// parseCertificateFile tries to parse certificate data as raw DER first,
+// then falls back to PEM decoding.
+func parseCertificateFile(data []byte) (*x509.Certificate, error) {
+	// Try raw DER first
+	cert, err := x509.ParseCertificate(data)
+	if err == nil {
+		return cert, nil
+	}
+
+	// Fall back to PEM decoding
+	block, _ := pem.Decode(data)
+	if block == nil {
+		return nil, fmt.Errorf("not valid DER or PEM certificate data")
+	}
+	if block.Type != "CERTIFICATE" {
+		return nil, fmt.Errorf("PEM block type is %q, expected CERTIFICATE", block.Type)
+	}
+	return x509.ParseCertificate(block.Bytes)
 }

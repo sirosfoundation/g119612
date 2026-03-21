@@ -2,9 +2,13 @@ package pipeline
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 
+	"github.com/sirosfoundation/g119612/pkg/dsig"
+	"github.com/sirosfoundation/g119612/pkg/etsi119602"
 	"github.com/sirosfoundation/g119612/pkg/jws"
 	"github.com/sirosfoundation/g119612/pkg/logging"
 	"github.com/sirosfoundation/g119612/pkg/validation"
@@ -16,9 +20,11 @@ import (
 // Usage in pipeline YAML:
 //
 //   - publish-lote:
-//   - /path/to/output/dir                          # unsigned JSON
+//   - /path/to/output/dir                                              # unsigned JSON
 //   - publish-lote:
-//   - ["/path/to/dir", "/cert.pem", "/key.pem"]   # JWS-signed
+//   - ["/path/to/dir", "/cert.pem", "/key.pem"]                       # JWS-signed with file key
+//   - publish-lote:
+//   - ["/path/to/dir", "pkcs11:module=/path;pin=1234", "key", "cert"] # JWS-signed with PKCS#11
 func PublishLoTE(pl *Pipeline, ctx *Context, args ...string) (*Context, error) {
 	if len(args) < 1 {
 		return nil, fmt.Errorf("publish-lote requires at least 1 argument: output directory")
@@ -34,16 +40,10 @@ func PublishLoTE(pl *Pipeline, ctx *Context, args ...string) (*Context, error) {
 		return nil, fmt.Errorf("failed to create output directory %s: %w", outputDir, err)
 	}
 
-	// Create JWS signer if cert+key provided
-	var signer jws.JSONSigner
-	if len(args) >= 3 {
-		certPath := args[1]
-		keyPath := args[2]
-		s, err := jws.NewFileSigner(certPath, keyPath)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create JWS signer: %w", err)
-		}
-		signer = s
+	// Create JWS signer from args
+	signer, err := createLoTESigner(args[1:])
+	if err != nil {
+		return nil, err
 	}
 
 	if ctx.LoTEs == nil || ctx.LoTEs.Size() == 0 {
@@ -53,13 +53,22 @@ func PublishLoTE(pl *Pipeline, ctx *Context, args ...string) (*Context, error) {
 		return ctx, nil
 	}
 
+	// Validate all LoTEs before writing anything
 	lotes := ctx.LoTEs.ToSlice()
 	for i, lote := range lotes {
-		// Generate filename from territory or index
-		filename := fmt.Sprintf("lote-%d.json", i)
-		if lote.SchemeInformation.Territory != "" {
-			filename = fmt.Sprintf("lote-%s.json", lote.SchemeInformation.Territory)
+		if err := lote.Validate(); err != nil {
+			return nil, fmt.Errorf("LoTE %d failed validation: %w", i, err)
 		}
+	}
+
+	usedFilenames := make(map[string]bool)
+	for i, lote := range lotes {
+		filename := loteFilename(lote, i)
+		// Prevent filename collisions
+		if usedFilenames[filename] {
+			filename = fmt.Sprintf("lote-%s-%d.json", lote.SchemeInformation.Territory, i)
+		}
+		usedFilenames[filename] = true
 
 		jsonData, err := lote.MarshalIndent()
 		if err != nil {
@@ -69,7 +78,6 @@ func PublishLoTE(pl *Pipeline, ctx *Context, args ...string) (*Context, error) {
 		outputPath := filepath.Join(outputDir, filename)
 
 		if signer != nil {
-			// Sign and write as JWS
 			compact, err := signer.Sign(jsonData)
 			if err != nil {
 				return nil, fmt.Errorf("failed to sign LoTE %d: %w", i, err)
@@ -96,4 +104,66 @@ func PublishLoTE(pl *Pipeline, ctx *Context, args ...string) (*Context, error) {
 	}
 
 	return ctx, nil
+}
+
+// loteFilename determines the output filename for a LoTE document.
+// Prefers distribution point URIs, then territory, then index-based.
+func loteFilename(lote *etsi119602.ListOfTrustedEntities, index int) string {
+	// Try distribution points first
+	if len(lote.SchemeInformation.DistributionPoints) > 0 {
+		u, err := url.Parse(lote.SchemeInformation.DistributionPoints[0])
+		if err == nil && u.Path != "" {
+			base := filepath.Base(u.Path)
+			if base != "" && base != "." && base != "/" {
+				return base
+			}
+		}
+	}
+
+	// Fall back to territory
+	if lote.SchemeInformation.Territory != "" {
+		return fmt.Sprintf("lote-%s.json", lote.SchemeInformation.Territory)
+	}
+
+	return fmt.Sprintf("lote-%d.json", index)
+}
+
+// createLoTESigner creates a JWS signer from the remaining publish-lote arguments.
+// Returns nil signer if no signing args provided.
+func createLoTESigner(args []string) (jws.JSONSigner, error) {
+	if len(args) == 0 {
+		return nil, nil
+	}
+
+	// PKCS#11: first arg starts with "pkcs11:"
+	if strings.HasPrefix(args[0], "pkcs11:") {
+		config := dsig.ExtractPKCS11Config(args[0])
+		if config == nil {
+			return nil, fmt.Errorf("invalid PKCS#11 URI: %s", args[0])
+		}
+		keyLabel := "default-key"
+		certLabel := "default-cert"
+		if len(args) >= 2 {
+			keyLabel = args[1]
+		}
+		if len(args) >= 3 {
+			certLabel = args[2]
+		}
+		signer := jws.NewPKCS11Signer(config, keyLabel, certLabel)
+		if len(args) >= 4 {
+			signer.SetKeyID(args[3])
+		}
+		return signer, nil
+	}
+
+	// File-based: need cert and key paths
+	if len(args) >= 2 {
+		s, err := jws.NewFileSigner(args[0], args[1])
+		if err != nil {
+			return nil, fmt.Errorf("failed to create JWS signer: %w", err)
+		}
+		return s, nil
+	}
+
+	return nil, fmt.Errorf("JWS signing requires cert and key paths, or a pkcs11: URI")
 }

@@ -94,11 +94,14 @@ func TestFromTSL_WithServices(t *testing.T) {
 	assert.Len(t, lote.TrustedEntities, 1)
 
 	entity := lote.TrustedEntities[0]
-	assert.Equal(t, "http://uri.etsi.org/TrstSvc/Svctype/CA/QC", entity.EntityID)
+	assert.Equal(t, "http://uri.etsi.org/TrstSvc/Svctype/CA/QC#tsp0-svc0", entity.EntityID)
 	assert.Equal(t, "http://uri.etsi.org/TrstSvc/TrustedList/Svcstatus/granted", entity.EntityStatus)
 	assert.Len(t, entity.DigitalIdentities, 1)
 	assert.Equal(t, "x509", entity.DigitalIdentities[0].Type)
 	assert.NotEmpty(t, entity.StatusStartingTime)
+	// Provider extensions should include tsp_name
+	assert.NotNil(t, entity.Extensions)
+	assert.Contains(t, entity.Extensions, "tsp_name")
 }
 
 func TestFromTSL_WithNextUpdate(t *testing.T) {
@@ -232,6 +235,7 @@ func TestFromTSL_WithX509SubjectName(t *testing.T) {
 	assert.Equal(t, "x509_subject_name", lote.TrustedEntities[0].DigitalIdentities[0].Type)
 	assert.Equal(t, "CN=Test,O=Org,C=SE", lote.TrustedEntities[0].DigitalIdentities[0].X509SubjectName)
 	assert.Equal(t, "x509", lote.TrustedEntities[0].DigitalIdentities[1].Type)
+	assert.Contains(t, lote.TrustedEntities[0].EntityID, "#tsp0-svc0")
 }
 
 func TestFromTSL_WithInformationURIs(t *testing.T) {
