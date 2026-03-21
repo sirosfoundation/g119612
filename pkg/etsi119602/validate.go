@@ -7,9 +7,9 @@ import (
 
 // validDigitalIdentityTypes are the supported DigitalIdentity type values.
 var validDigitalIdentityTypes = map[string]bool{
-	"jwk":              true,
-	"x509":             true,
-	"did":              true,
+	"jwk":               true,
+	"x509":              true,
+	"did":               true,
 	"x509_subject_name": true,
 }
 

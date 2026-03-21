@@ -15,7 +15,7 @@ import (
 func TestFetchLoTE_PlainFilePath(t *testing.T) {
 	dir := t.TempDir()
 	lote := &ListOfTrustedEntities{
-		Version:         "1.0",
+		Version:           "1.0",
 		SchemeInformation: SchemeInformation{Territory: "SE"},
 	}
 	data, err := json.Marshal(lote)
@@ -32,7 +32,7 @@ func TestFetchLoTE_PlainFilePath(t *testing.T) {
 func TestFetchLoTE_FilePrefix(t *testing.T) {
 	dir := t.TempDir()
 	lote := &ListOfTrustedEntities{
-		Version:         "1.0",
+		Version:           "1.0",
 		SchemeInformation: SchemeInformation{Territory: "NO"},
 	}
 	data, err := json.Marshal(lote)
@@ -53,7 +53,7 @@ func TestFetchLoTE_NonexistentFile(t *testing.T) {
 
 func TestFetchLoTE_HTTPSuccess(t *testing.T) {
 	lote := &ListOfTrustedEntities{
-		Version:         "1.0",
+		Version:           "1.0",
 		SchemeInformation: SchemeInformation{Territory: "FI"},
 		TrustedEntities: []TrustedEntity{
 			{EntityID: "https://test.fi", EntityStatus: StatusGranted},

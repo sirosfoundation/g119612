@@ -4,19 +4,33 @@
 ![coverage](https://raw.githubusercontent.com/sirosfoundation/g119612/badges/.badges/main/coverage.svg)
 [![License](https://img.shields.io/badge/License-BSD_2--Clause-orange.svg)](https://opensource.org/licenses/BSD-2-Clause)
 
-# golang ETSI trust status lists (aka ETSI 119 612 v2)
+# golang ETSI Trust Lists (TS 119 612 + TS 119 602)
 
-This is a golang library implementing ETSI trust status lists. The library is meant to be used primarily to create a certificate pool for validating X509 certificates. The library was created to cater to the evolving EUDI wallet ecosystem but other uses are possible. Feel free to drop a PR or an issue if you see something you would like to change.
+A Go library for working with ETSI trust lists — both the traditional XML-based **Trust Status Lists** (ETSI TS 119 612) and the modern JSON-based **Lists of Trusted Entities** (ETSI TS 119 602, LoTE). The library was created to cater to the evolving EUDI wallet ecosystem but other uses are possible. Feel free to drop a PR or an issue if you see something you would like to change.
 
-The library should be fully reentrant. There is no caching of URLs or other artefacts so make sure you fetch your TSLs from a CDN or similar and ensure availability.
+The library is fully reentrant. There is no caching of URLs or other artefacts so make sure you fetch your TSLs/LoTEs from a CDN or similar and ensure availability.
 
 ## Features
 
-- **Full ETSI TS 119 612 support**: Parse, validate, and process Trust Status Lists
+### ETSI TS 119 612 (Trust Status Lists — XML)
+
+- **Full TSL parsing**: Parse, validate, and process Trust Status Lists
 - **XML Digital Signature Validation**: Built-in validation of XML signatures on TSLs
-- **Certificate Pool Creation**: Build x509.CertPool from TSLs for certificate verification
-- **Pipeline Processing**: YAML-configurable pipeline for batch TSL processing
+- **Certificate Pool Creation**: Build `x509.CertPool` from TSLs for certificate verification
 - **XSLT Transformation**: Transform TSLs to HTML with embedded stylesheets
+
+### ETSI TS 119 602 (Lists of Trusted Entities — JSON)
+
+- **LoTE parsing and generation**: Create, load, validate, and publish LoTE JSON documents
+- **TSL → LoTE conversion**: Convert existing ETSI TS 119 612 TSLs to LoTE format
+- **JWS signing and verification**: Sign LoTEs with JWS (file-based keys or PKCS#11/HSM)
+- **Content validation**: Structural validation of LoTE documents before publishing
+- **Multiple digital identity types**: X.509 certificates, JWK keys, and DIDs
+- **Merge and sequence management**: Merge multiple LoTEs and auto-increment sequence numbers
+
+### Common
+
+- **Pipeline Processing**: YAML-configurable pipeline for batch TSL and LoTE processing
 - **Structured Logging**: Configurable logging with multiple output formats
 
 ## Installation
@@ -26,6 +40,8 @@ go get github.com/sirosfoundation/g119612
 ```
 
 ## Basic Usage
+
+### Working with TSLs (ETSI TS 119 612)
 
 The example below assumes you have imported the crypto/x509 and etsi119612 module (the latter from this package).
 
@@ -53,6 +69,32 @@ Finally: validate some cert
     if err != nil {
         //cert is INVALID
     }
+```
+
+### Working with LoTEs (ETSI TS 119 602)
+
+Load a LoTE from a URL or file:
+```go
+    lote, err := etsi119602.FetchLoTE("https://example.com/lote.json", nil)
+    if err != nil {
+        // handle error
+    }
+    fmt.Printf("Territory: %s, Entities: %d\n",
+        lote.SchemeInformation.Territory,
+        len(lote.TrustedEntities))
+```
+
+Validate a LoTE before publishing:
+```go
+    if err := lote.Validate(); err != nil {
+        // LoTE has structural issues
+    }
+```
+
+Convert an existing TSL to LoTE format:
+```go
+    tsl, _ := etsi119612.FetchTSL("https://example.com/tsl.xml")
+    lote := etsi119602.FromTSL(tsl)
 ```
 
 ## Command-Line Tool: tsl-tool
@@ -91,6 +133,8 @@ Create a YAML file defining your processing steps:
 
 ### Available Pipeline Steps
 
+#### TSL Steps (ETSI TS 119 612)
+
 | Step | Description |
 |------|-------------|
 | `load` | Load TSL from URL or file path |
@@ -103,14 +147,100 @@ Create a YAML file defining your processing steps:
 | `set-fetch-options` | Configure HTTP client options |
 | `echo` | No-op placeholder step |
 
+#### LoTE Steps (ETSI TS 119 602)
+
+| Step | Description |
+|------|-------------|
+| `load-lote` | Load LoTE from URL or file path, optionally verify JWS signature |
+| `generate-lote` | Generate LoTE from a directory structure (YAML metadata + cert/JWK/DID files) |
+| `publish-lote` | Write LoTE JSON files, optionally sign with JWS (file key or PKCS#11/HSM) |
+| `convert-to-lote` | Convert all TSLs on the context stack to LoTE format |
+| `merge-lote` | Merge multiple LoTEs into a single LoTE |
+| `increment-lote-sequence` | Increment the sequence number on all LoTEs in context |
+
+### LoTE Pipeline Examples
+
+Convert an EU TSL to LoTE and publish as signed JSON:
+```yaml
+- set-fetch-options:
+    - user-agent:TSL-Tool/1.0
+    - timeout:60s
+- load:
+    - https://ec.europa.eu/tools/lotl/eu-lotl.xml
+- select:
+    - reference-depth:2
+- convert-to-lote:
+- merge-lote:
+- increment-lote-sequence:
+- publish-lote:
+    - /var/www/html/lote
+    - /path/to/signing-cert.pem
+    - /path/to/signing-key.pem
+```
+
+Generate a LoTE from a directory structure:
+```yaml
+- generate-lote:
+    - /path/to/lote-source
+- publish-lote:
+    - /var/www/html/lote
+```
+
+### LoTE Source Directory Structure
+
+The `generate-lote` step expects a directory with YAML metadata and identity files:
+
+```
+lote-source/
+├── scheme.yaml
+└── entities/
+    ├── my-issuer/
+    │   ├── entity.yaml
+    │   ├── signing-cert.pem    # X.509 certificate (PEM or DER)
+    │   └── auth-key.jwk        # JWK key (JSON)
+    └── my-verifier/
+        ├── entity.yaml
+        └── identity.did         # DID identifier
+```
+
+**scheme.yaml:**
+```yaml
+operatorNames:
+  - language: en
+    value: "My Trust Scheme Operator"
+schemeName:
+  - language: en
+    value: "My Trust Scheme"
+schemeType: "http://uri.etsi.org/TrstSvc/TrustedList/TSLType/EUgeneric"
+territory: "SE"
+sequenceNumber: 1
+```
+
+**entity.yaml:**
+```yaml
+entityId: "https://issuer.example.com"
+names:
+  - language: en
+    value: "Example Credential Issuer"
+status: "http://uri.etsi.org/TrstSvc/TrustedList/Svcstatus/granted"
+services:
+  - serviceType: "http://uri.etsi.org/TrstSvc/Svctype/CA/QC"
+    serviceNames:
+      - language: en
+        value: "Qualified Certificate Service"
+    status: "http://uri.etsi.org/TrstSvc/TrustedList/Svcstatus/granted"
+```
+
 ## Packages
 
 | Package | Description |
 |---------|-------------|
-| `etsi119612` | Core TSL parsing and certificate pool creation |
-| `dsig` | XML Digital Signature validation |
-| `pipeline` | YAML-configurable pipeline processing |
-| `validation` | TSL and certificate validation utilities |
+| `etsi119612` | Core TSL types, parsing, and certificate pool creation (ETSI TS 119 612) |
+| `etsi119602` | LoTE types, parsing, validation, fetching, and TSL→LoTE conversion (ETSI TS 119 602) |
+| `dsig` | XML Digital Signature validation (including PKCS#11/HSM support) |
+| `jws` | JWS signing and verification for LoTE documents (file keys and PKCS#11/HSM) |
+| `pipeline` | YAML-configurable pipeline processing for both TSL and LoTE workflows |
+| `validation` | URL, file path, and output directory validation utilities |
 | `xslt` | XSLT transformation with embedded stylesheets |
 | `logging` | Structured logging framework |
 | `utils` | Common utility functions |

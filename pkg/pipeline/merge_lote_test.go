@@ -119,5 +119,3 @@ func TestIncrementLoTESequence_Multiple(t *testing.T) {
 	assert.Equal(t, 11, lotes[0].SchemeInformation.SequenceNumber)
 	assert.Equal(t, 21, lotes[1].SchemeInformation.SequenceNumber)
 }
-
-
