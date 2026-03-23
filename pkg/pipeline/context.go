@@ -2,7 +2,6 @@ package pipeline
 
 import (
 	"crypto/x509"
-	"time"
 
 	"github.com/sirosfoundation/g119612/pkg/etsi119602"
 	"github.com/sirosfoundation/g119612/pkg/etsi119612"
@@ -133,10 +132,8 @@ func (ctx *Context) EnsureTSLStack() *Context {
 //   - The Context itself for method chaining
 func (ctx *Context) EnsureTSLFetchOptions() *Context {
 	if ctx.TSLFetchOptions == nil {
-		ctx.TSLFetchOptions = &etsi119612.TSLFetchOptions{
-			UserAgent: "Go-Trust/1.0 Pipeline (+https://github.com/sirosfoundation/go-trust)",
-			Timeout:   30 * time.Second,
-		}
+		opts := etsi119612.DefaultTSLFetchOptions // copy defaults including MaxDereferenceDepth
+		ctx.TSLFetchOptions = &opts
 	}
 	return ctx
 }

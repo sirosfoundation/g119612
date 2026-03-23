@@ -148,7 +148,11 @@ func TestLoadTSLWithReferences(t *testing.T) {
 		}
 	} // Test with max-depth:0 (should load only the main TSL)
 	ctx = NewContext()
-	ctx, err = loadTSL(pl, ctx, mainTSLFile.Name(), "max-depth:0")
+	ctx, err = SetFetchOptions(pl, ctx, "max-depth:0")
+	if err != nil {
+		t.Fatalf("Failed to set fetch options with max-depth:0: %v", err)
+	}
+	ctx, err = loadTSL(pl, ctx, mainTSLFile.Name())
 	if err != nil {
 		t.Fatalf("Failed to load TSL with max-depth:0: %v", err)
 	}
