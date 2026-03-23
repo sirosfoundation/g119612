@@ -26,13 +26,16 @@ test:
 	go test -v ./...
 
 .PHONY: build
-build:  ## build the library
-	CGO_ENABLED=0 go build ${LDFLAGS} -o etsi_ts -a cmd/etsi_ts/main.go
+build: tsl-tool ## build tsl-tool binary
+
+.PHONY: tsl-tool
+tsl-tool: ## build the tsl-tool binary
+	go build ${LDFLAGS} -o tsl-tool -a cmd/tsl-tool/main.go
 
 .PHONY: clean
 clean: ## remove temporary files
 	go clean
-	rm -f *.out *.log etsi_ts tsl-tool
+	rm -f *.out *.log tsl-tool
 
 .PHONY: realclean
 realclean: ## remove generated files - requires "make gen"
