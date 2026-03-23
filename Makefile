@@ -32,7 +32,7 @@ build:  ## build the library
 .PHONY: clean
 clean: ## remove temporary files
 	go clean
-	rm -f *.out *.log
+	rm -f *.out *.log etsi_ts tsl-tool
 
 .PHONY: realclean
 realclean: ## remove generated files - requires "make gen"
