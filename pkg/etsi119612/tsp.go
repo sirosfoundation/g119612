@@ -4,9 +4,85 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"slices"
+	"strings"
 
 	log "github.com/sirupsen/logrus"
 )
+
+// CertParseErrorKind categorizes the type of certificate parsing failure.
+type CertParseErrorKind string
+
+const (
+	CertParseErrUnsupportedCurve CertParseErrorKind = "unsupported_elliptic_curve"
+	CertParseErrInvalidRSA       CertParseErrorKind = "invalid_rsa_key"
+	CertParseErrInvalidASN1      CertParseErrorKind = "invalid_asn1"
+	CertParseErrBase64           CertParseErrorKind = "invalid_base64"
+	CertParseErrOther            CertParseErrorKind = "other"
+)
+
+// ClassifyCertParseError determines the kind of certificate parsing error from the error message.
+func ClassifyCertParseError(err error) CertParseErrorKind {
+	msg := err.Error()
+	switch {
+	case strings.Contains(msg, "unsupported elliptic curve"):
+		return CertParseErrUnsupportedCurve
+	case strings.Contains(msg, "RSA modulus is not a positive number"):
+		return CertParseErrInvalidRSA
+	case strings.Contains(msg, "invalid RDNSequence") ||
+		strings.Contains(msg, "invalid basic constraints") ||
+		strings.Contains(msg, "invalid PrintableString"):
+		return CertParseErrInvalidASN1
+	default:
+		return CertParseErrOther
+	}
+}
+
+// CertParseStats tracks certificate parsing outcomes for a trust service or set of services.
+type CertParseStats struct {
+	Total   int                       // Total certificates encountered
+	Parsed  int                       // Successfully parsed
+	Skipped map[CertParseErrorKind]int // Skipped by error kind
+}
+
+// NewCertParseStats creates a new CertParseStats instance.
+func NewCertParseStats() *CertParseStats {
+	return &CertParseStats{
+		Skipped: make(map[CertParseErrorKind]int),
+	}
+}
+
+// RecordSuccess records a successfully parsed certificate.
+func (s *CertParseStats) RecordSuccess() {
+	s.Total++
+	s.Parsed++
+}
+
+// RecordSkip records a certificate that was skipped due to a parsing error.
+func (s *CertParseStats) RecordSkip(kind CertParseErrorKind) {
+	s.Total++
+	s.Skipped[kind]++
+}
+
+// TotalSkipped returns the total number of skipped certificates.
+func (s *CertParseStats) TotalSkipped() int {
+	n := 0
+	for _, v := range s.Skipped {
+		n += v
+	}
+	return n
+}
+
+// Merge adds the counts from another CertParseStats into this one.
+func (s *CertParseStats) Merge(other *CertParseStats) {
+	if other == nil {
+		return
+	}
+	s.Total += other.Total
+	s.Parsed += other.Parsed
+	for kind, count := range other.Skipped {
+		s.Skipped[kind] += count
+	}
+}
 
 const ServiceStatusGranted string = "https://uri.etsi.org/TrstSvc/TrustedList/Svcstatus/granted/"
 
@@ -44,25 +120,47 @@ func NewTSPServicePolicy() *TSPServicePolicy {
 	return &tc
 }
 
-// Cahe provided callback for all t all the X509 certificate data for the given Trust Service object.
-func (svc *TSPServiceType) WithCertificates(cb func(*x509.Certificate)) {
-	if svc.TslServiceInformation.TslServiceDigitalIdentity != nil {
-		for _, id := range svc.TslServiceInformation.TslServiceDigitalIdentity.DigitalId {
-			if len(id.X509Certificate) > 0 {
-				data, err := base64.StdEncoding.DecodeString(string(id.X509Certificate))
-				if err == nil {
-					cert, err := x509.ParseCertificate(data)
-					if err == nil {
-						cb(cert)
-					} else {
-						log.Errorf("g119612: [TSP: %s] Error parsing certificate: %s", FindByLanguage(svc.TslServiceInformation.ServiceName, "en", "Unknown"), err)
-					}
-				} else {
-					log.Errorf("g119612: [TSP: %s] Error decoding certificate: %s", FindByLanguage(svc.TslServiceInformation.ServiceName, "en", "Unknown"), err)
-				}
+// WithCertificateResults iterates X.509 digital identities for this trust service,
+// calling cb for each successfully parsed certificate, and returning aggregate
+// parse statistics (including counts and reasons for any that could not be parsed).
+func (svc *TSPServiceType) WithCertificateResults(cb func(*x509.Certificate)) *CertParseStats {
+	stats := NewCertParseStats()
+	if svc.TslServiceInformation.TslServiceDigitalIdentity == nil {
+		return stats
+	}
+	for _, id := range svc.TslServiceInformation.TslServiceDigitalIdentity.DigitalId {
+		if len(id.X509Certificate) > 0 {
+			data, err := base64.StdEncoding.DecodeString(string(id.X509Certificate))
+			if err != nil {
+				stats.RecordSkip(CertParseErrBase64)
+				continue
 			}
+			cert, err := x509.ParseCertificate(data)
+			if err != nil {
+				stats.RecordSkip(ClassifyCertParseError(err))
+				continue
+			}
+			stats.RecordSuccess()
+			cb(cert)
 		}
 	}
+	if skipped := stats.TotalSkipped(); skipped > 0 {
+		svcName := "Unknown"
+		if svc.TslServiceInformation.ServiceName != nil {
+			svcName = FindByLanguage(svc.TslServiceInformation.ServiceName, "en", "Unknown")
+		}
+		log.Warnf("g119612: [TSP: %s] Skipped %d/%d certificates (unsupported by Go x509 parser)",
+			svcName, skipped, stats.Total)
+	}
+	return stats
+}
+
+// WithCertificates calls cb for each successfully parsed X.509 certificate in
+// this trust service's digital identity. Certificates that cannot be parsed
+// (e.g. unsupported elliptic curves, malformed ASN.1) are silently skipped.
+// Use WithCertificateResults for structured error tracking.
+func (svc *TSPServiceType) WithCertificates(cb func(*x509.Certificate)) {
+	svc.WithCertificateResults(cb)
 }
 
 // Checks a Trust Service for validity during certificate validation.

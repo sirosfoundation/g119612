@@ -97,6 +97,7 @@ func SelectCertPool(pl *Pipeline, ctx *Context, args ...string) (*Context, error
 	// Track certificate counts for logging
 	certCount := 0
 	tslCount := 0
+	aggregateStats := etsi119612.NewCertParseStats()
 
 	// Create a certificate processing function that applies filters
 	processCertificate := func(tsp *etsi119612.TSPType, svc *etsi119612.TSPServiceType, cert *x509.Certificate) {
@@ -157,9 +158,10 @@ func SelectCertPool(pl *Pipeline, ctx *Context, args ...string) (*Context, error
 
 		// Process the TSL
 		tsl.WithTrustServices(func(tsp *etsi119612.TSPType, svc *etsi119612.TSPServiceType) {
-			svc.WithCertificates(func(cert *x509.Certificate) {
+			stats := svc.WithCertificateResults(func(cert *x509.Certificate) {
 				processCertificate(tsp, svc, cert)
 			})
+			aggregateStats.Merge(stats)
 		})
 	}
 
@@ -189,24 +191,9 @@ func SelectCertPool(pl *Pipeline, ctx *Context, args ...string) (*Context, error
 		processNodeWithDepth(tree.Root, 0)
 	}
 
-	// Check if we should use the legacy stack
-	if ctx.TSLs != nil && !ctx.TSLs.IsEmpty() {
-		// Process TSLs from the legacy stack
-		tsls := ctx.TSLs.ToSlice()
-		for i, tsl := range tsls {
-			if tsl == nil {
-				continue
-			}
-
-			// In legacy mode, with a flat list:
-			// - The root TSL is at index 0
-			// - Referenced TSLs come after, but we don't have depth information
-			// - So we'll include TSLs up to the reference depth
-			if i == 0 || (i > 0 && i <= referenceDepth) {
-				processTSL(tsl)
-			}
-		}
-	} else {
+	// Prefer the tree structure which preserves hierarchy information.
+	// The legacy flat stack only provides correct results when reference-depth is not used.
+	if ctx.TSLTrees != nil && !ctx.TSLTrees.IsEmpty() {
 		// Process each TSL tree in the stack
 		treeSlice := ctx.TSLTrees.ToSlice()
 		for _, tree := range treeSlice {
@@ -222,6 +209,19 @@ func SelectCertPool(pl *Pipeline, ctx *Context, args ...string) (*Context, error
 				processTSL(tree.Root.TSL)
 			}
 		}
+	} else if ctx.TSLs != nil && !ctx.TSLs.IsEmpty() {
+		// Fallback: process TSLs from the legacy flat stack.
+		// Without depth information, reference-depth acts as an index limit.
+		tsls := ctx.TSLs.ToSlice()
+		for i, tsl := range tsls {
+			if tsl == nil {
+				continue
+			}
+
+			if i == 0 || (i > 0 && i <= referenceDepth) {
+				processTSL(tsl)
+			}
+		}
 	}
 
 	// Log summary information
@@ -229,9 +229,20 @@ func SelectCertPool(pl *Pipeline, ctx *Context, args ...string) (*Context, error
 		pl.Logger.Info("Certificate pool created",
 			logging.F("tsl_count", tslCount),
 			logging.F("certificate_count", certCount),
+			logging.F("certificates_encountered", aggregateStats.Total),
+			logging.F("certificates_parsed", aggregateStats.Parsed),
+			logging.F("certificates_skipped", aggregateStats.TotalSkipped()),
 			logging.F("reference_depth", referenceDepth),
 			logging.F("service_type_filters", len(serviceTypeFilters)),
 			logging.F("status_filters", len(statusFilters)))
+
+		if aggregateStats.TotalSkipped() > 0 {
+			for kind, count := range aggregateStats.Skipped {
+				pl.Logger.Warn("Skipped unparseable certificates",
+					logging.F("reason", string(kind)),
+					logging.F("count", count))
+			}
+		}
 	}
 
 	if pl != nil && pl.Logger != nil {
