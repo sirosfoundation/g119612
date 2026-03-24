@@ -40,9 +40,17 @@ func (pl *Pipeline) Process(ctx *Context) (*Context, error) {
 		if !ok {
 			return nil, fmt.Errorf("step %d: unknown methodName '%s'", i, pipe.MethodName)
 		}
+		// Record the step in the report if it exists.
+		if ctx.Report != nil {
+			ctx.Report.RecordStep(pipe.MethodName)
+		}
 		var err error
 		ctx, err = fn(pl, ctx, pipe.MethodArguments...)
 		if err != nil {
+			if ctx.Report != nil {
+				ctx.Report.AddIssue(SeverityError, pipe.MethodName, "",
+					fmt.Sprintf("step failed: %v", err))
+			}
 			return ctx, fmt.Errorf("step %d (%s) failed: %w", i, pipe.MethodName, err)
 		}
 	}

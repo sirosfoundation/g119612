@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ .Title }}</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@1/css/pico.min.css">
+    <style>
+        :root {
+            --color-error: #d32f2f;
+            --color-warning: #f57c00;
+            --color-info: #1976d2;
+            --color-success: #388e3c;
+        }
+        [data-theme="dark"] {
+            --color-error: #ef5350;
+            --color-warning: #ffb74d;
+            --color-info: #64b5f6;
+            --color-success: #81c784;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        .stat-card {
+            text-align: center;
+            padding: 1rem;
+            border-radius: 8px;
+            background: var(--card-background-color);
+            box-shadow: 0 1px 3px rgba(0,0,0,.12);
+        }
+        .stat-card .number { font-size: 2rem; font-weight: 700; }
+        .stat-card .label  { font-size: .85rem; opacity: .7; }
+        .stat-card.error   .number { color: var(--color-error); }
+        .stat-card.warning .number { color: var(--color-warning); }
+        .stat-card.info    .number { color: var(--color-info); }
+        .stat-card.success .number { color: var(--color-success); }
+
+        .badge {
+            display: inline-block;
+            padding: .15em .5em;
+            border-radius: 4px;
+            font-size: .8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .badge-error   { background: var(--color-error);   color: #fff; }
+        .badge-warning { background: var(--color-warning);  color: #fff; }
+        .badge-info    { background: var(--color-info);     color: #fff; }
+
+        .controls {
+            display: flex; gap: .5rem; flex-wrap: wrap;
+            margin-bottom: 1rem; align-items: center;
+        }
+        .controls input[type="search"] { flex: 1; min-width: 200px; }
+        .controls select { width: auto; }
+
+        .issue-table td, .issue-table th { font-size: .9rem; }
+        .issue-table .col-sev  { width: 90px; }
+        .issue-table .col-step { width: 100px; }
+
+        .cert-section { margin-top: 2rem; }
+        .cert-bar {
+            display: flex; height: 24px; border-radius: 4px; overflow: hidden;
+            margin: .5rem 0;
+        }
+        .cert-bar .parsed  { background: var(--color-success); }
+        .cert-bar .skipped { background: var(--color-warning); }
+        .cert-detail-table td { font-size: .85rem; }
+
+        .steps-list {
+            display: flex; flex-wrap: wrap; gap: .4rem;
+            margin-bottom: 2rem;
+        }
+        .step-tag {
+            background: var(--card-background-color);
+            border: 1px solid var(--muted-border-color);
+            border-radius: 4px; padding: .2em .6em;
+            font-size: .85rem;
+        }
+        .empty-state { text-align: center; padding: 2rem; opacity: .6; }
+        .theme-toggle { cursor: pointer; }
+    </style>
+</head>
+<body>
+    <main class="container">
+        <header>
+            <h1>{{ .Title }}</h1>
+            <p>Generated {{ .GeneratedDate }}{{ if .Duration }} &mdash; pipeline ran in {{ .Duration }}{{ end }}</p>
+        </header>
+
+        <!-- Summary Cards -->
+        <div class="stats-grid">
+            <div class="stat-card error">
+                <div class="number">{{ .ErrorCount }}</div>
+                <div class="label">Errors</div>
+            </div>
+            <div class="stat-card warning">
+                <div class="number">{{ .WarningCount }}</div>
+                <div class="label">Warnings</div>
+            </div>
+            <div class="stat-card info">
+                <div class="number">{{ .InfoCount }}</div>
+                <div class="label">Info</div>
+            </div>
+            <div class="stat-card success">
+                <div class="number">{{ .CertsParsed }}</div>
+                <div class="label">Certs Parsed</div>
+            </div>
+            <div class="stat-card{{ if gt .CertsSkipped 0 }} warning{{ end }}">
+                <div class="number">{{ .CertsSkipped }}</div>
+                <div class="label">Certs Skipped</div>
+            </div>
+        </div>
+
+        <!-- Pipeline Steps -->
+        {{ if .Steps }}
+        <details open>
+            <summary><strong>Pipeline Steps Executed ({{ len .Steps }})</strong></summary>
+            <div class="steps-list">
+                {{ range $i, $s := .Steps }}
+                <span class="step-tag">{{ inc $i }}. {{ $s }}</span>
+                {{ end }}
+            </div>
+        </details>
+        {{ end }}
+
+        <!-- Issues Table -->
+        {{ if .Issues }}
+        <h2>Issues ({{ len .Issues }})</h2>
+        <div class="controls">
+            <input type="search" id="search" placeholder="Search issues..."
+                   aria-label="Search issues" oninput="filterIssues()">
+            <select id="filter-severity" aria-label="Filter by severity" onchange="filterIssues()">
+                <option value="">All Severities</option>
+                <option value="error">Errors</option>
+                <option value="warning">Warnings</option>
+                <option value="info">Info</option>
+            </select>
+            <select id="filter-step" aria-label="Filter by step" onchange="filterIssues()">
+                <option value="">All Steps</option>
+                {{ range .UniqueSteps }}
+                <option value="{{ . }}">{{ . }}</option>
+                {{ end }}
+            </select>
+            <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode">🌓</button>
+        </div>
+
+        <div class="table-wrapper">
+            <table class="issue-table" id="issue-table">
+                <thead>
+                    <tr>
+                        <th class="col-sev">Severity</th>
+                        <th class="col-step">Step</th>
+                        <th>Source</th>
+                        <th>Message</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{ range .Issues }}
+                    <tr data-severity="{{ .Severity }}" data-step="{{ .Step }}">
+                        <td><span class="badge badge-{{ .Severity }}">{{ .Severity }}</span></td>
+                        <td>{{ .Step }}</td>
+                        <td>{{ .Source }}{{ if .TSP }}<br><small>{{ .TSP }}{{ if .Service }} / {{ .Service }}{{ end }}</small>{{ end }}</td>
+                        <td>{{ .Message }}{{ if .Detail }}<br><small>{{ .Detail }}</small>{{ end }}</td>
+                    </tr>
+                    {{ end }}
+                </tbody>
+            </table>
+        </div>
+        <div id="no-results" class="empty-state" style="display: none;">
+            <p>No issues match your filter criteria.</p>
+        </div>
+        {{ else }}
+        <div class="empty-state">
+            <h2>✅ No Issues Found</h2>
+            <p>The pipeline completed without any recorded issues.</p>
+        </div>
+        {{ end }}
+
+        <!-- Certificate Parsing Details -->
+        {{ if .CertStats }}
+        <div class="cert-section">
+            <h2>Certificate Parsing Summary</h2>
+            {{ range .CertStats }}
+            <details>
+                <summary>
+                    <strong>{{ .Source }}</strong> &mdash;
+                    {{ .Stats.Parsed }}/{{ .Stats.Total }} parsed
+                    {{ if gt .Stats.TotalSkipped 0 }}
+                    ({{ .Stats.TotalSkipped }} skipped)
+                    {{ end }}
+                </summary>
+                {{ if gt .Stats.Total 0 }}
+                <div class="cert-bar">
+                    <div class="parsed" style="width:{{ percent .Stats.Parsed .Stats.Total }}%"
+                         title="{{ .Stats.Parsed }} parsed"></div>
+                    <div class="skipped" style="width:{{ percent .Stats.TotalSkipped .Stats.Total }}%"
+                         title="{{ .Stats.TotalSkipped }} skipped"></div>
+                </div>
+                {{ end }}
+                {{ if .SkippedByKind }}
+                <table class="cert-detail-table">
+                    <thead><tr><th>Error Kind</th><th>Count</th></tr></thead>
+                    <tbody>
+                    {{ range $kind, $count := .SkippedByKind }}
+                        <tr><td>{{ $kind }}</td><td>{{ $count }}</td></tr>
+                    {{ end }}
+                    </tbody>
+                </table>
+                {{ end }}
+                {{ if .Details }}
+                <table class="cert-detail-table">
+                    <thead><tr><th>TSP</th><th>Service</th><th>Error</th><th>Detail</th></tr></thead>
+                    <tbody>
+                    {{ range .Details }}
+                        <tr>
+                            <td>{{ .TSP }}</td>
+                            <td>{{ .Service }}</td>
+                            <td><span class="badge badge-warning">{{ .ErrorKind }}</span></td>
+                            <td>{{ .Detail }}</td>
+                        </tr>
+                    {{ end }}
+                    </tbody>
+                </table>
+                {{ end }}
+            </details>
+            {{ end }}
+        </div>
+        {{ end }}
+
+        <footer>
+            <p>
+                <strong>Generated by g119612 TSL Pipeline</strong><br>
+                {{ .GeneratedDate }}
+            </p>
+        </footer>
+    </main>
+
+    <script>
+        function filterIssues() {
+            var search = document.getElementById('search').value.toLowerCase();
+            var sev = document.getElementById('filter-severity').value;
+            var step = document.getElementById('filter-step').value;
+            var rows = document.querySelectorAll('#issue-table tbody tr');
+            var visible = 0;
+            rows.forEach(function(row) {
+                var text = row.textContent.toLowerCase();
+                var matchSearch = !search || text.indexOf(search) !== -1;
+                var matchSev = !sev || row.dataset.severity === sev;
+                var matchStep = !step || row.dataset.step === step;
+                var show = matchSearch && matchSev && matchStep;
+                row.style.display = show ? '' : 'none';
+                if (show) visible++;
+            });
+            document.getElementById('no-results').style.display = visible === 0 ? '' : 'none';
+        }
+        function toggleTheme() {
+            var html = document.documentElement;
+            html.dataset.theme = html.dataset.theme === 'dark' ? 'light' : 'dark';
+        }
+    </script>
+</body>
+</html>

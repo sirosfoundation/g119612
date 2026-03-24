@@ -155,14 +155,47 @@ func SelectCertPool(pl *Pipeline, ctx *Context, args ...string) (*Context, error
 		}
 
 		tslCount++
+		tslStats := etsi119612.NewCertParseStats()
+		var certDetails []CertIssueDetail
 
 		// Process the TSL
 		tsl.WithTrustServices(func(tsp *etsi119612.TSPType, svc *etsi119612.TSPServiceType) {
+			tspName := ""
+			if tsp.TslTSPInformation != nil && tsp.TslTSPInformation.TSPName != nil {
+				tspName = etsi119612.FindByLanguage(tsp.TslTSPInformation.TSPName, "en", "")
+			}
+			svcName := ""
+			if svc.TslServiceInformation.ServiceName != nil {
+				svcName = etsi119612.FindByLanguage(svc.TslServiceInformation.ServiceName, "en", "")
+			}
+
 			stats := svc.WithCertificateResults(func(cert *x509.Certificate) {
 				processCertificate(tsp, svc, cert)
 			}, ctx.CryptoExt)
+			tslStats.Merge(stats)
 			aggregateStats.Merge(stats)
+
+			// Record individual cert issues for the report.
+			for kind, count := range stats.Skipped {
+				for range count {
+					certDetails = append(certDetails, CertIssueDetail{
+						TSP:       tspName,
+						Service:   svcName,
+						ErrorKind: kind,
+					})
+				}
+			}
 		})
+
+		// Record per-TSL cert summary into the report if present.
+		if ctx.Report != nil && tslStats.Total > 0 {
+			ctx.Report.AddCertSummary(tsl.Source, tslStats, certDetails)
+			if tslStats.TotalSkipped() > 0 {
+				ctx.Report.AddIssue(SeverityWarning, "select", tsl.Source,
+					fmt.Sprintf("%d/%d certificates could not be parsed",
+						tslStats.TotalSkipped(), tslStats.Total))
+			}
+		}
 	}
 
 	// Define a function to process a tree with a limited depth

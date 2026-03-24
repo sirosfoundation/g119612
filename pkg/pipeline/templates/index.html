@@ -15,6 +15,18 @@
             <h1>{{ .Title }}</h1>
         </header>
 
+        {{ if .ReportLink }}
+        <!-- Pipeline Report Summary -->
+        <div class="report-banner" style="padding: 1rem; margin-bottom: 1.5rem; border-radius: 8px; border-left: 4px solid {{ if gt .ReportErrors 0 }}#d32f2f{{ else if gt .ReportWarnings 0 }}#f57c00{{ else }}#388e3c{{ end }}; background: var(--card-background-color);">
+            <strong>Pipeline Report:</strong>
+            {{ if gt .ReportErrors 0 }}<span style="color:#d32f2f">{{ .ReportErrors }} error(s)</span>{{ end }}
+            {{ if gt .ReportWarnings 0 }}<span style="color:#f57c00">{{ .ReportWarnings }} warning(s)</span>{{ end }}
+            {{ if and (eq .ReportErrors 0) (eq .ReportWarnings 0) }}<span style="color:#388e3c">no issues</span>{{ end }}
+            &mdash; {{ .ReportCertsParsed }} certs parsed{{ if gt .ReportCertsSkipped 0 }}, <span style="color:#f57c00">{{ .ReportCertsSkipped }} skipped</span>{{ end }}
+            &mdash; <a href="{{ .ReportLink }}">View full report</a>
+        </div>
+        {{ end }}
+
         <!-- Statistics Cards -->
         <div class="stats-grid">
             <div class="stat-card">

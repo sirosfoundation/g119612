@@ -86,7 +86,7 @@ func GenerateIndex(pl *Pipeline, ctx *Context, args ...string) (*Context, error)
 	}
 
 	// Generate the index.html file
-	err = generateIndexHTML(dirPath, entries, title)
+	err = generateIndexHTML(dirPath, entries, title, ctx.Report)
 	if err != nil {
 		return ctx, fmt.Errorf("failed to generate index.html: %w", err)
 	}
@@ -220,20 +220,44 @@ func extractMetadataFromHTML(filePath, relPath string) (TSLIndexEntry, error) {
 }
 
 // generateIndexHTML creates an index.html file with links to all TSL HTML files using embedded templates
-func generateIndexHTML(dirPath string, entries []TSLIndexEntry, title string) error {
+func generateIndexHTML(dirPath string, entries []TSLIndexEntry, title string, report *PipelineReport) error {
 	// Prepare template data
+	reportLink := ""
+	var reportErrors, reportWarnings, reportCertsParsed, reportCertsSkipped int
+	if report != nil {
+		// Check if a report.html exists next to the index.
+		if _, err := os.Stat(filepath.Join(dirPath, "report.html")); err == nil {
+			reportLink = "report.html"
+		}
+		counts := report.CountBySeverity()
+		reportErrors = counts[SeverityError]
+		reportWarnings = counts[SeverityWarning]
+		reportCertsParsed = report.TotalCertsParsed()
+		reportCertsSkipped = report.TotalCertsSkipped()
+	}
+
 	data := struct {
-		Title         string
-		Entries       []TSLIndexEntry
-		GeneratedDate string
-		CSS           template.CSS
-		JavaScript    template.JS
+		Title              string
+		Entries            []TSLIndexEntry
+		GeneratedDate      string
+		CSS                template.CSS
+		JavaScript         template.JS
+		ReportLink         string
+		ReportErrors       int
+		ReportWarnings     int
+		ReportCertsParsed  int
+		ReportCertsSkipped int
 	}{
-		Title:         title,
-		Entries:       entries,
-		GeneratedDate: time.Now().Format("2006-01-02"),
-		CSS:           template.CSS(indexCSS),
-		JavaScript:    template.JS(indexJavaScript),
+		Title:              title,
+		Entries:            entries,
+		GeneratedDate:      time.Now().Format("2006-01-02"),
+		CSS:                template.CSS(indexCSS),
+		JavaScript:         template.JS(indexJavaScript),
+		ReportLink:         reportLink,
+		ReportErrors:       reportErrors,
+		ReportWarnings:     reportWarnings,
+		ReportCertsParsed:  reportCertsParsed,
+		ReportCertsSkipped: reportCertsSkipped,
 	}
 
 	// Parse and execute the template

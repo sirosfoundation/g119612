@@ -20,6 +20,7 @@ type Context struct {
 	Data            map[string]any                                  // Data store for sharing information between pipeline steps
 	TSLFetchOptions *etsi119612.TSLFetchOptions                     // Options for fetching Trust Status Lists
 	CryptoExt       *cryptoutil.Extensions                          // Crypto extensions for brainpool/PQ certificate support
+	Report          *PipelineReport                                  // Accumulated issues and statistics for report generation
 }
 
 // EnsureTSLTrees ensures that the TSL tree stack is initialized.
@@ -33,6 +34,18 @@ type Context struct {
 func (ctx *Context) EnsureTSLTrees() *Context {
 	if ctx.TSLTrees == nil {
 		ctx.TSLTrees = utils.NewStack[*TSLTree]()
+	}
+	return ctx
+}
+
+// EnsureReport ensures that the pipeline report is initialized.
+// If the report doesn't exist, it creates a new empty report.
+//
+// Returns:
+//   - The Context itself for method chaining
+func (ctx *Context) EnsureReport() *Context {
+	if ctx.Report == nil {
+		ctx.Report = NewPipelineReport()
 	}
 	return ctx
 }

@@ -170,5 +170,12 @@ func LoadTSL(pl *Pipeline, ctx *Context, args ...string) (*Context, error) {
 		logging.F("total_providers", totalProviders),
 		logging.F("total_services", totalServices))
 
+	// Record load summary into the report if present.
+	if ctx.Report != nil {
+		ctx.Report.AddIssue(SeverityInfo, "load", url,
+			fmt.Sprintf("Loaded %d TSL(s): %d providers, %d services (territory: %s)",
+				len(tsls), totalProviders, totalServices, schemeTerritory))
+	}
+
 	return ctx, nil
 }
