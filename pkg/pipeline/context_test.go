@@ -4,6 +4,8 @@ import (
 	"crypto/x509"
 	"testing"
 
+	"github.com/sirosfoundation/go-cryptoutil"
+
 	etsi119612 "github.com/sirosfoundation/g119612/pkg/etsi119612"
 	"github.com/sirosfoundation/g119612/pkg/logging"
 	"github.com/sirosfoundation/g119612/pkg/utils"
@@ -190,5 +192,55 @@ func TestContext_Copy_DeepCopy(t *testing.T) {
 		assert.NotNil(t, copied.CertPool)
 		// CertPool is recreated (not the same reference)
 		assert.NotSame(t, original.CertPool, copied.CertPool)
+	})
+}
+
+func TestEnsureTSLFetchOptions_CryptoExtPropagation(t *testing.T) {
+	t.Run("propagates CryptoExt to new options", func(t *testing.T) {
+		ctx := NewContext()
+		ext := cryptoutil.New()
+		ctx.CryptoExt = ext
+
+		ctx.EnsureTSLFetchOptions()
+
+		assert.NotNil(t, ctx.TSLFetchOptions)
+		assert.Same(t, ext, ctx.TSLFetchOptions.CryptoExt)
+	})
+
+	t.Run("propagates CryptoExt to existing options", func(t *testing.T) {
+		ctx := NewContext()
+		ext := cryptoutil.New()
+		ctx.CryptoExt = ext
+		opts := etsi119612.DefaultTSLFetchOptions
+		ctx.TSLFetchOptions = &opts
+
+		ctx.EnsureTSLFetchOptions()
+
+		assert.Same(t, ext, ctx.TSLFetchOptions.CryptoExt)
+	})
+
+	t.Run("does not overwrite existing CryptoExt on options", func(t *testing.T) {
+		ctx := NewContext()
+		ext1 := cryptoutil.New()
+		ext2 := cryptoutil.New()
+		ctx.CryptoExt = ext1
+		opts := etsi119612.DefaultTSLFetchOptions
+		opts.CryptoExt = ext2
+		ctx.TSLFetchOptions = &opts
+
+		ctx.EnsureTSLFetchOptions()
+
+		// Should keep ext2, not overwrite with ext1
+		assert.Same(t, ext2, ctx.TSLFetchOptions.CryptoExt)
+	})
+
+	t.Run("nil CryptoExt does not propagate", func(t *testing.T) {
+		ctx := NewContext()
+		ctx.CryptoExt = nil
+
+		ctx.EnsureTSLFetchOptions()
+
+		assert.NotNil(t, ctx.TSLFetchOptions)
+		assert.Nil(t, ctx.TSLFetchOptions.CryptoExt)
 	})
 }

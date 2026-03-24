@@ -86,6 +86,7 @@ func TestClassifyCertParseError(t *testing.T) {
 	}{
 		{"unsupported curve", "x509: unsupported elliptic curve", CertParseErrUnsupportedCurve},
 		{"invalid RSA modulus", "x509: RSA modulus is not a positive number", CertParseErrInvalidRSA},
+		{"malformed RSA encoding", "x509: RSA key missing NULL parameters", CertParseErrMalformedRSA},
 		{"invalid RDN sequence", "x509: invalid RDNSequence: invalid attribute value: invalid PrintableString", CertParseErrInvalidASN1},
 		{"invalid basic constraints", "x509: invalid basic constraints", CertParseErrInvalidASN1},
 		{"unknown error", "x509: something completely different", CertParseErrOther},
