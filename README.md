@@ -17,6 +17,7 @@ The library is fully reentrant. There is no caching of URLs or other artefacts s
 - **Full TSL parsing**: Parse, validate, and process Trust Status Lists
 - **XML Digital Signature Validation**: Built-in validation of XML signatures on TSLs
 - **Certificate Pool Creation**: Build `x509.CertPool` from TSLs for certificate verification
+- **Extensible Crypto Support**: Brainpool curves and other non-standard algorithms via `go-cryptoutil`
 - **XSLT Transformation**: Transform TSLs to HTML with embedded stylesheets
 
 ### ETSI TS 119 602 (Lists of Trusted Entities — JSON)
@@ -129,6 +130,29 @@ Create a YAML file defining your processing steps:
 - generate_index:
     - /var/www/html/tsl
     - "EU Trust Lists"
+```
+
+#### Brainpool / Extended Crypto Support
+
+The `tsl-tool` CLI automatically registers brainpool curve support via
+`go-cryptoutil`, enabling parsing and signature verification for EU TSLs
+that use brainpool P256r1/P384r1/P512r1 certificates (e.g. Germany's gematik).
+
+When using the library programmatically, set `CryptoExt` on the pipeline context:
+
+```go
+import (
+    "github.com/sirosfoundation/go-cryptoutil"
+    "github.com/sirosfoundation/go-cryptoutil/brainpool"
+    "github.com/sirosfoundation/g119612/pkg/pipeline"
+)
+
+ext := cryptoutil.New()
+brainpool.Register(ext)
+
+ctx := &pipeline.Context{}
+ctx.CryptoExt = ext
+// CryptoExt automatically propagates to TSL fetch options and certificate pool building
 ```
 
 ### Available Pipeline Steps
