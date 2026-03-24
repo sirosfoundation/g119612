@@ -19,6 +19,7 @@ const (
 	CertParseErrInvalidRSA       CertParseErrorKind = "invalid_rsa_key"
 	CertParseErrInvalidASN1      CertParseErrorKind = "invalid_asn1"
 	CertParseErrBase64           CertParseErrorKind = "invalid_base64"
+	CertParseErrMalformedRSA     CertParseErrorKind = "malformed_rsa_encoding"
 	CertParseErrOther            CertParseErrorKind = "other"
 )
 
@@ -30,6 +31,8 @@ func ClassifyCertParseError(err error) CertParseErrorKind {
 		return CertParseErrUnsupportedCurve
 	case strings.Contains(msg, "RSA modulus is not a positive number"):
 		return CertParseErrInvalidRSA
+	case strings.Contains(msg, "RSA key missing NULL parameters"):
+		return CertParseErrMalformedRSA
 	case strings.Contains(msg, "invalid RDNSequence") ||
 		strings.Contains(msg, "invalid basic constraints") ||
 		strings.Contains(msg, "invalid PrintableString"):
