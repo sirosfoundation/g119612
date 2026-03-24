@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	log "github.com/sirupsen/logrus"
+
+	"github.com/sirosfoundation/go-cryptoutil"
 )
 
 // CertParseErrorKind categorizes the type of certificate parsing failure.
@@ -39,8 +41,8 @@ func ClassifyCertParseError(err error) CertParseErrorKind {
 
 // CertParseStats tracks certificate parsing outcomes for a trust service or set of services.
 type CertParseStats struct {
-	Total   int                       // Total certificates encountered
-	Parsed  int                       // Successfully parsed
+	Total   int                        // Total certificates encountered
+	Parsed  int                        // Successfully parsed
 	Skipped map[CertParseErrorKind]int // Skipped by error kind
 }
 
@@ -123,7 +125,9 @@ func NewTSPServicePolicy() *TSPServicePolicy {
 // WithCertificateResults iterates X.509 digital identities for this trust service,
 // calling cb for each successfully parsed certificate, and returning aggregate
 // parse statistics (including counts and reasons for any that could not be parsed).
-func (svc *TSPServiceType) WithCertificateResults(cb func(*x509.Certificate)) *CertParseStats {
+// If ext is provided, it is used for certificate parsing (enabling support for
+// brainpool curves and other extended algorithms).
+func (svc *TSPServiceType) WithCertificateResults(cb func(*x509.Certificate), ext ...*cryptoutil.Extensions) *CertParseStats {
 	stats := NewCertParseStats()
 	if svc.TslServiceInformation.TslServiceDigitalIdentity == nil {
 		return stats
@@ -135,7 +139,12 @@ func (svc *TSPServiceType) WithCertificateResults(cb func(*x509.Certificate)) *C
 				stats.RecordSkip(CertParseErrBase64)
 				continue
 			}
-			cert, err := x509.ParseCertificate(data)
+			var cert *x509.Certificate
+			if len(ext) > 0 && ext[0] != nil {
+				cert, err = ext[0].ParseCertificate(data)
+			} else {
+				cert, err = x509.ParseCertificate(data)
+			}
 			if err != nil {
 				stats.RecordSkip(ClassifyCertParseError(err))
 				continue
@@ -159,8 +168,8 @@ func (svc *TSPServiceType) WithCertificateResults(cb func(*x509.Certificate)) *C
 // this trust service's digital identity. Certificates that cannot be parsed
 // (e.g. unsupported elliptic curves, malformed ASN.1) are silently skipped.
 // Use WithCertificateResults for structured error tracking.
-func (svc *TSPServiceType) WithCertificates(cb func(*x509.Certificate)) {
-	svc.WithCertificateResults(cb)
+func (svc *TSPServiceType) WithCertificates(cb func(*x509.Certificate), ext ...*cryptoutil.Extensions) {
+	svc.WithCertificateResults(cb, ext...)
 }
 
 // Checks a Trust Service for validity during certificate validation.

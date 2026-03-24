@@ -68,6 +68,8 @@ import (
 	"github.com/sirosfoundation/g119612/pkg/etsi119612"
 	"github.com/sirosfoundation/g119612/pkg/logging"
 	"github.com/sirosfoundation/g119612/pkg/pipeline"
+	"github.com/sirosfoundation/go-cryptoutil"
+	"github.com/sirosfoundation/go-cryptoutil/brainpool"
 )
 
 // Version is set at build time using -ldflags
@@ -204,8 +206,11 @@ func main() {
 	logger.Info("Loaded pipeline",
 		logging.F("steps", len(pl.Pipes)))
 
-	// Create initial context
+	// Create initial context with brainpool crypto extensions
+	ext := cryptoutil.New()
+	brainpool.Register(ext)
 	ctx := pipeline.NewContext()
+	ctx.CryptoExt = ext
 
 	// Process the pipeline
 	resultCtx, err := pl.Process(ctx)
@@ -244,7 +249,7 @@ func main() {
 					}
 					pemData = append(pemData, pem.EncodeToMemory(block)...)
 					certCount++
-				})
+				}, resultCtx.CryptoExt)
 			})
 		}
 

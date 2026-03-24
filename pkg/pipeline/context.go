@@ -6,6 +6,7 @@ import (
 	"github.com/sirosfoundation/g119612/pkg/etsi119602"
 	"github.com/sirosfoundation/g119612/pkg/etsi119612"
 	"github.com/sirosfoundation/g119612/pkg/utils"
+	"github.com/sirosfoundation/go-cryptoutil"
 )
 
 // Context holds the shared state passed between pipeline steps during processing.
@@ -18,6 +19,7 @@ type Context struct {
 	CertPool        *x509.CertPool                                  // Certificate pool for trust verification
 	Data            map[string]any                                  // Data store for sharing information between pipeline steps
 	TSLFetchOptions *etsi119612.TSLFetchOptions                     // Options for fetching Trust Status Lists
+	CryptoExt       *cryptoutil.Extensions                          // Crypto extensions for brainpool/PQ certificate support
 }
 
 // EnsureTSLTrees ensures that the TSL tree stack is initialized.
@@ -134,6 +136,10 @@ func (ctx *Context) EnsureTSLFetchOptions() *Context {
 	if ctx.TSLFetchOptions == nil {
 		opts := etsi119612.DefaultTSLFetchOptions // copy defaults including MaxDereferenceDepth
 		ctx.TSLFetchOptions = &opts
+	}
+	// Always propagate CryptoExt so TSL fetching can verify brainpool signatures
+	if ctx.CryptoExt != nil && ctx.TSLFetchOptions.CryptoExt == nil {
+		ctx.TSLFetchOptions.CryptoExt = ctx.CryptoExt
 	}
 	return ctx
 }

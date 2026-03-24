@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"github.com/moov-io/signedxml"
+	"github.com/sirosfoundation/go-cryptoutil"
 )
 
 // A representation of an ETSI 119 612 trust status list. The main struct type StatusList
@@ -103,6 +104,10 @@ type TSLFetchOptions struct {
 	// This helps with content negotiation to ensure we receive XML content.
 	// If empty, a default set of XML-related Accept headers will be used.
 	AcceptHeaders []string
+
+	// CryptoExt provides extended algorithm support (e.g. brainpool curves)
+	// for certificate parsing and signature verification during TSL loading.
+	CryptoExt *cryptoutil.Extensions
 }
 
 // DefaultTSLFetchOptions provides reasonable default options for fetching TSLs
@@ -219,6 +224,9 @@ func FetchTSLWithOptions(url string, options TSLFetchOptions) (*TSL, error) {
 		validator, err := signedxml.NewValidator(string(bodyBytes))
 		if err == nil {
 			validator.SetReferenceIDAttribute("Id")
+			if options.CryptoExt != nil {
+				validator.SetCryptoExtensions(options.CryptoExt)
+			}
 			xml, err := validator.ValidateReferences()
 			if err == nil {
 				bodyBytes = []byte(xml[0])
@@ -410,7 +418,7 @@ func (tsl *TSL) WithTrustServices(cb func(*TSPType, *TSPServiceType)) {
 }
 
 // Generate a [crypto/xml.CertPool] object from the TSL.
-func (tsl *TSL) ToCertPool(policy *TSPServicePolicy) *x509.CertPool {
+func (tsl *TSL) ToCertPool(policy *TSPServicePolicy, ext ...*cryptoutil.Extensions) *x509.CertPool {
 	pool := x509.NewCertPool()
 	tsl.WithTrustServices(func(tsp *TSPType, svc *TSPServiceType) {
 		svc.WithCertificates(func(cert *x509.Certificate) {
@@ -418,7 +426,7 @@ func (tsl *TSL) ToCertPool(policy *TSPServicePolicy) *x509.CertPool {
 			if tsp.Validate(svc, []*x509.Certificate{cert}, policy) == nil {
 				pool.AddCert(cert)
 			}
-		})
+		}, ext...)
 	})
 	return pool
 }
@@ -432,7 +440,7 @@ func (tsl *TSL) ToCertPool(policy *TSPServicePolicy) *x509.CertPool {
 // Returns:
 //   - *x509.CertPool: A certificate pool containing all valid certificates from this TSL
 //     and all its referenced TSLs that satisfy the given policy
-func (tsl *TSL) ToCertPoolWithReferences(policy *TSPServicePolicy) *x509.CertPool {
+func (tsl *TSL) ToCertPoolWithReferences(policy *TSPServicePolicy, ext ...*cryptoutil.Extensions) *x509.CertPool {
 	pool := x509.NewCertPool()
 
 	// Process the main TSL
@@ -442,7 +450,7 @@ func (tsl *TSL) ToCertPoolWithReferences(policy *TSPServicePolicy) *x509.CertPoo
 			if tsp.Validate(svc, []*x509.Certificate{cert}, policy) == nil {
 				pool.AddCert(cert)
 			}
-		})
+		}, ext...)
 	})
 
 	// Process all referenced TSLs
@@ -454,7 +462,7 @@ func (tsl *TSL) ToCertPoolWithReferences(policy *TSPServicePolicy) *x509.CertPoo
 					if tsp.Validate(svc, []*x509.Certificate{cert}, policy) == nil {
 						pool.AddCert(cert)
 					}
-				})
+				}, ext...)
 			})
 		}
 	}

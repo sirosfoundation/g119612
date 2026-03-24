@@ -160,7 +160,7 @@ func SelectCertPool(pl *Pipeline, ctx *Context, args ...string) (*Context, error
 		tsl.WithTrustServices(func(tsp *etsi119612.TSPType, svc *etsi119612.TSPServiceType) {
 			stats := svc.WithCertificateResults(func(cert *x509.Certificate) {
 				processCertificate(tsp, svc, cert)
-			})
+			}, ctx.CryptoExt)
 			aggregateStats.Merge(stats)
 		})
 	}
