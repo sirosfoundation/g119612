@@ -11,8 +11,8 @@ require (
 	github.com/moov-io/signedxml v1.2.3
 	github.com/russellhaering/goxmldsig v1.5.0
 	github.com/sirupsen/logrus v1.9.3
-	github.com/sirosfoundation/go-cryptoutil v0.1.0
-	github.com/sirosfoundation/go-cryptoutil/brainpool v0.1.0
+	github.com/sirosfoundation/go-cryptoutil v0.2.0
+	github.com/sirosfoundation/go-cryptoutil/brainpool v0.2.0
 	github.com/stretchr/testify v1.11.1
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -30,6 +30,6 @@ require (
 	golang.org/x/sys v0.32.0 // indirect
 )
 
-replace github.com/moov-io/signedxml v1.2.3 => github.com/sirosfoundation/signedxml v1.3.0-siros1
+replace github.com/moov-io/signedxml v1.2.3 => github.com/sirosfoundation/signedxml v1.4.0-siros1
 
 replace github.com/russellhaering/goxmldsig v1.5.0 => github.com/sirosfoundation/goxmldsig v1.6.0-siros1
