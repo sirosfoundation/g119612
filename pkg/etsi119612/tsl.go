@@ -108,6 +108,12 @@ type TSLFetchOptions struct {
 	// CryptoExt provides extended algorithm support (e.g. brainpool curves)
 	// for certificate parsing and signature verification during TSL loading.
 	CryptoExt *cryptoutil.Extensions
+
+	// FetchErrorCallback is called when fetching a referenced TSL fails.
+	// The callback receives the URL that failed and the error that occurred.
+	// This allows the caller to collect fetch errors for reporting.
+	// If nil, errors are only logged.
+	FetchErrorCallback func(url string, err error)
 }
 
 // DefaultTSLFetchOptions provides reasonable default options for fetching TSLs
@@ -334,6 +340,9 @@ func (tsl *TSL) dereferencePointersToOtherTSLWithOptions(options TSLFetchOptions
 			tsl.AddReferencedTSL(refTsl)
 		} else {
 			log.Warnf("g119612: Failed to fetch referenced TSL %s: %v", p.TSLLocation, err)
+			if options.FetchErrorCallback != nil {
+				options.FetchErrorCallback(p.TSLLocation, err)
+			}
 		}
 	}
 }
@@ -385,6 +394,9 @@ func (tsl *TSL) dereferencePointersTSLsRecursive(options TSLFetchOptions, allTSL
 
 		if err != nil {
 			log.Warnf("g119612: Failed to fetch referenced TSL %s: %v", p.TSLLocation, err)
+			if options.FetchErrorCallback != nil {
+				options.FetchErrorCallback(p.TSLLocation, err)
+			}
 			continue
 		}
 
@@ -396,6 +408,9 @@ func (tsl *TSL) dereferencePointersTSLsRecursive(options TSLFetchOptions, allTSL
 		if err := refTsl.dereferencePointersTSLsRecursive(options, allTSLs, currentDepth+1); err != nil {
 			// Log but continue with other references
 			log.Warnf("g119612: Error dereferencing TSL %s: %v", p.TSLLocation, err)
+			if options.FetchErrorCallback != nil {
+				options.FetchErrorCallback(p.TSLLocation, err)
+			}
 		}
 	}
 

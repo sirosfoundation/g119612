@@ -65,6 +65,14 @@ func LoadTSL(pl *Pipeline, ctx *Context, args ...string) (*Context, error) {
 	// Ensure the TSLFetchOptions are initialized with default values if not set
 	ctx.EnsureTSLFetchOptions()
 
+	// Set up callback to capture fetch errors in the report
+	ctx.TSLFetchOptions.FetchErrorCallback = func(failedURL string, fetchErr error) {
+		if ctx.Report != nil {
+			ctx.Report.AddIssue(SeverityWarning, "load", failedURL,
+				fmt.Sprintf("Failed to fetch referenced TSL: %v", fetchErr))
+		}
+	}
+
 	pl.Logger.Debug("Loading TSL",
 		logging.F("url", url),
 		logging.F("user-agent", ctx.TSLFetchOptions.UserAgent),
