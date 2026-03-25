@@ -28,320 +28,217 @@
           <xsl:value-of select="tsl:TrustServiceStatusList/tsl:SchemeInformation/tsl:SchemeTerritory"/>
           <xsl:text> - Trust Service Status List</xsl:text>
         </title>
-        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@1/css/pico.min.css"/>
         <style>
-          /* Custom styles to complement PicoCSS */
+          /* Design Tokens - Matching g119612 design system */
           :root {
-            --badge-qualified-bg: #27ae60;
-            --badge-nonqualified-bg: #f39c12;
-            --badge-granted-bg: #2ecc71;
-            --badge-withdrawn-bg: #e74c3c;
+            --color-primary: #0066cc;
+            --color-primary-dark: #004d99;
+            --color-success: #28a745;
+            --color-warning: #f57c00;
+            --color-error: #d32f2f;
+            --color-bg: #f8f9fa;
+            --color-surface: #ffffff;
+            --color-text: #212529;
+            --color-text-muted: #6c757d;
+            --color-border: #dee2e6;
+            --font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            --font-mono: 'SF Mono', Monaco, 'Cascadia Code', 'Courier New', monospace;
+            --radius: 8px;
+            --radius-sm: 4px;
+            --shadow: 0 2px 4px rgba(0,0,0,0.1);
           }
-          
+          *, *::before, *::after { box-sizing: border-box; }
           body {
-            padding-bottom: 2rem;
+            margin: 0;
+            font-family: var(--font-sans);
+            font-size: 16px;
+            line-height: 1.6;
+            color: var(--color-text);
+            background: var(--color-bg);
+          }
+          a { color: var(--color-primary); text-decoration: none; }
+          a:hover { color: var(--color-primary-dark); text-decoration: underline; }
+          code {
+            font-family: var(--font-mono);
+            font-size: 0.875em;
+            padding: 0.125em 0.375em;
+            background: var(--color-bg);
+            border-radius: var(--radius-sm);
           }
 
-          .container {
-            max-width: 1400px;
-          }
+          .container { max-width: 1200px; margin: 0 auto; padding: 1.5rem; }
 
-          /* Header Improvements */
+          /* Header and Navigation */
+          header { margin-bottom: 1.5rem; }
           nav {
-            margin-bottom: 1.5rem;
-          }
-
-          nav ul li strong {
-            font-size: 1.2rem;
-          }
-
-          /* Back to Index Button */
-          .back-link {
-            margin-bottom: 1rem;
-          }
-
-          .back-link a {
-            display: inline-flex;
+            display: flex;
+            justify-content: space-between;
             align-items: center;
-            gap: 0.5rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--color-border);
+          }
+          nav ul { list-style: none; margin: 0; padding: 0; display: flex; gap: 1rem; align-items: center; }
+          nav ul li strong { font-size: 1.25rem; color: var(--color-text); }
+          nav ul li a {
+            display: inline-block;
             padding: 0.5rem 1rem;
-            background: var(--primary);
-            color: white;
-            border-radius: 5px;
-            text-decoration: none;
-            font-weight: 600;
+            background: var(--color-primary);
+            color: #fff;
+            border-radius: var(--radius-sm);
+            font-weight: 500;
+            font-size: 0.875rem;
+            transition: background 0.15s;
           }
+          nav ul li a:hover { background: var(--color-primary-dark); text-decoration: none; }
 
-          .back-link a:hover {
-            opacity: 0.9;
-          }
+          .back-link { margin-bottom: 1.5rem; }
+          .back-link a { display: inline-flex; align-items: center; gap: 0.25rem; font-weight: 500; }
 
           /* TSL Meta Box */
           .tsl-meta {
-            padding: 1.25rem;
+            padding: 1rem 1.25rem;
             margin-bottom: 1.5rem;
-            border-radius: 8px;
-            background-color: var(--card-background-color);
-            border: 1px solid var(--card-border-color);
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            border-radius: var(--radius);
+            background: var(--color-surface);
+            border: 1px solid var(--color-border);
           }
-
-          .tsl-meta p {
-            margin-bottom: 0.5rem;
-          }
-
-          .tsl-meta p:last-child {
-            margin-bottom: 0;
-          }
-
-          /* Certificate Data */
-          .cert-data {
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 0.75rem;
-            max-height: 200px;
-            overflow-y: auto;
-            padding: 1rem;
-            border: 1px solid var(--card-border-color);
-            border-radius: 5px;
-            background-color: var(--code-background-color);
-            white-space: pre-wrap;
-            word-break: break-all;
-            line-height: 1.4;
-          }
+          .tsl-meta p { margin: 0.25rem 0; }
+          .tsl-meta p:first-child { margin-top: 0; }
+          .tsl-meta p:last-child { margin-bottom: 0; }
+          .tsl-meta code { background: var(--color-bg); font-size: 0.8125em; }
 
           /* Badges */
           .badge {
             display: inline-block;
-            padding: 0.3rem 0.7rem;
-            border-radius: 4px;
-            font-size: 0.8rem;
+            padding: 0.2em 0.6em;
+            border-radius: var(--radius-sm);
+            font-size: 0.75rem;
             font-weight: 600;
             margin-right: 0.5rem;
             margin-bottom: 0.5rem;
             white-space: nowrap;
           }
-          
-          .badge-qualified {
-            background-color: var(--badge-qualified-bg);
-            color: white;
-          }
-          
-          .badge-nonqualified {
-            background-color: var(--badge-nonqualified-bg);
-            color: white;
-          }
-          
-          .badge-granted {
-            background-color: var(--badge-granted-bg);
-            color: white;
-          }
-          
-          .badge-withdrawn {
-            background-color: var(--badge-withdrawn-bg);
-            color: white;
-          }
+          .badge-qualified { background: var(--color-success); color: #fff; }
+          .badge-nonqualified { background: var(--color-warning); color: #fff; }
+          .badge-granted { background: var(--color-success); color: #fff; }
+          .badge-withdrawn { background: var(--color-error); color: #fff; }
 
-          /* Details/Summary Improvements */
+          /* Details/Accordions */
           details {
             margin-bottom: 1rem;
+            background: var(--color-surface);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius);
           }
-          
           details summary {
             cursor: pointer;
             padding: 0.75rem 1rem;
-            background-color: var(--card-background-color);
-            border: 1px solid var(--card-border-color);
-            border-radius: 5px;
             font-weight: 600;
-            transition: background-color 0.2s;
             user-select: none;
+            transition: background 0.15s;
           }
+          details summary:hover { background: var(--color-bg); }
+          details[open] summary { border-bottom: 1px solid var(--color-border); }
+          details .content { padding: 1rem; }
 
-          details summary:hover {
-            background-color: var(--primary-hover);
-          }
-          
-          details[open] summary {
-            border-bottom-left-radius: 0;
-            border-bottom-right-radius: 0;
-            margin-bottom: 0;
-            background-color: var(--primary-hover);
-          }
-          
-          details .content {
-            padding: 1rem;
-            border: 1px solid var(--card-border-color);
-            border-top: none;
-            border-bottom-left-radius: 5px;
-            border-bottom-right-radius: 5px;
-            background-color: var(--card-background-color);
-          }
-
-          /* Service Cards */
-          .service-card {
-            margin-left: 1.5rem;
-            margin-bottom: 1.5rem;
-            padding-left: 1rem;
-            border-left: 4px solid var(--primary-focus);
-          }
-
-          /* Provider Cards */
+          /* Cards */
+          article { margin-bottom: 1.5rem; }
           .provider-card {
-            border-left: 4px solid var(--primary);
-            padding-left: 1rem;
-            margin-bottom: 2rem;
+            background: var(--color-surface);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius);
+            padding: 1.25rem;
+            border-left: 4px solid var(--color-primary);
           }
-
-          /* URI Display */
-          .uri {
-            word-break: break-all;
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 0.85em;
-            line-height: 1.4;
-          }
-
-          /* Articles */
-          article {
-            margin-bottom: 2rem;
-          }
-
-          /* Tables - Responsive */
-          .table-wrapper {
-            overflow-x: auto;
+          .service-card {
+            margin-left: 1rem;
             margin-bottom: 1rem;
-          }
-
-          table {
-            width: 100%;
-            min-width: auto;
-          }
-
-          table th {
-            white-space: nowrap;
-            background-color: var(--card-background-color);
-            padding: 0.75rem;
-          }
-
-          table td {
-            padding: 0.75rem;
-            vertical-align: top;
+            padding: 1rem;
+            background: var(--color-bg);
+            border-radius: var(--radius);
+            border-left: 3px solid var(--color-border);
           }
 
           /* Headings */
           h2 {
-            margin-top: 2rem;
-            margin-bottom: 1rem;
+            margin: 2rem 0 1rem;
+            font-size: 1.5rem;
+            font-weight: 600;
             padding-bottom: 0.5rem;
-            border-bottom: 2px solid var(--primary);
+            border-bottom: 2px solid var(--color-primary);
+          }
+          h3 { margin: 0 0 0.75rem; font-size: 1.25rem; font-weight: 600; }
+          h4 { margin: 1rem 0 0.5rem; font-size: 1rem; font-weight: 600; color: var(--color-primary); }
+          h5 { margin: 0.75rem 0 0.5rem; font-size: 0.9375rem; font-weight: 600; }
+
+          /* Tables */
+          .table-wrapper { overflow-x: auto; margin-bottom: 1rem; }
+          table { width: 100%; border-collapse: collapse; font-size: 0.9375rem; }
+          table th {
+            text-align: left;
+            padding: 0.75rem;
+            background: var(--color-bg);
+            border-bottom: 2px solid var(--color-border);
+            font-weight: 600;
+            white-space: nowrap;
+            width: 160px;
+          }
+          table td { padding: 0.75rem; border-bottom: 1px solid var(--color-border); vertical-align: top; }
+          table tbody tr:last-child td { border-bottom: none; }
+
+          /* URI Display */
+          .uri {
+            word-break: break-all;
+            font-family: var(--font-mono);
+            font-size: 0.8125rem;
+            color: var(--color-text-muted);
           }
 
-          h3 {
-            margin-top: 1.5rem;
-            margin-bottom: 0.75rem;
-          }
-
-          h4 {
-            margin-top: 1rem;
-            margin-bottom: 0.5rem;
-            color: var(--primary);
+          /* Certificate Data */
+          .cert-data {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            max-height: 200px;
+            overflow-y: auto;
+            padding: 1rem;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            border-radius: var(--radius-sm);
+            white-space: pre-wrap;
+            word-break: break-all;
+            line-height: 1.5;
           }
 
           /* Footer */
           footer {
             margin-top: 3rem;
-            padding-top: 2rem;
-            border-top: 1px solid var(--card-border-color);
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--color-border);
             text-align: center;
-            color: var(--muted-color);
-            font-size: 0.9rem;
+            color: var(--color-text-muted);
+            font-size: 0.875rem;
           }
-          
+
           /* Mobile Responsiveness */
           @media (max-width: 768px) {
-            .container {
-              padding: 1rem;
-            }
-
-            nav ul li strong {
-              font-size: 1rem;
-            }
-
-            .service-card {
-              margin-left: 0.5rem;
-              padding-left: 0.75rem;
-            }
-
-            .provider-card {
-              padding-left: 0.75rem;
-            }
-
-            table {
-              font-size: 0.85rem;
-            }
-
-            table th,
-            table td {
-              padding: 0.5rem;
-            }
-
-            .badge {
-              font-size: 0.7rem;
-              padding: 0.25rem 0.5rem;
-            }
-
-            .cert-data {
-              font-size: 0.7rem;
-              padding: 0.75rem;
-              max-height: 150px;
-            }
-
-            h2 {
-              font-size: 1.5rem;
-            }
-
-            h3 {
-              font-size: 1.25rem;
-            }
-
-            h4 {
-              font-size: 1.1rem;
-            }
-
-            /* Stack table rows vertically on very small screens */
-            @media (max-width: 480px) {
-              table {
-                font-size: 0.8rem;
-              }
-
-              table th {
-                min-width: 100px;
-              }
-            }
+            .container { padding: 1rem; }
+            nav { flex-direction: column; align-items: flex-start; }
+            nav ul { flex-wrap: wrap; }
+            .provider-card { padding: 1rem; }
+            .service-card { margin-left: 0.5rem; padding: 0.75rem; }
+            table { font-size: 0.875rem; }
+            table th, table td { padding: 0.5rem; }
+            table th { width: 120px; }
+            .badge { font-size: 0.6875rem; }
           }
 
           /* Print Styles */
           @media print {
-            nav,
-            .back-link {
-              display: none;
-            }
-
-            body {
-              background: white;
-            }
-
-            details {
-              page-break-inside: avoid;
-            }
-
-            details summary {
-              display: none;
-            }
-
-            details .content {
-              border: none;
-              padding: 0;
-            }
+            nav, .back-link { display: none; }
+            body { background: white; }
+            details[open] summary { display: block; }
           }
         </style>
       </head>
@@ -350,8 +247,7 @@
           <xsl:apply-templates select="tsl:TrustServiceStatusList"/>
           
           <footer>
-            <p><strong>Generated using TSL to HTML Stylesheet</strong><br/>
-            Styled with PicoCSS</p>
+            <p><strong>Generated by g119612 TSL Pipeline</strong></p>
           </footer>
         </main>
 

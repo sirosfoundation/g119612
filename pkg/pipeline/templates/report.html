@@ -4,14 +4,53 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ .Title }}</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@1/css/pico.min.css">
     <style>
+        /* Design Tokens - Matching index.css */
         :root {
-            --color-error: #d32f2f;
+            --color-primary: #0066cc;
+            --color-primary-dark: #004d99;
+            --color-success: #28a745;
             --color-warning: #f57c00;
+            --color-error: #d32f2f;
             --color-info: #1976d2;
-            --color-success: #388e3c;
+            --color-bg: #f8f9fa;
+            --color-surface: #ffffff;
+            --color-text: #212529;
+            --color-text-muted: #6c757d;
+            --color-border: #dee2e6;
+            --font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            --font-mono: 'SF Mono', Monaco, 'Cascadia Code', 'Courier New', monospace;
+            --radius: 8px;
+            --radius-sm: 4px;
+            --shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
+        *, *::before, *::after { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: var(--font-sans);
+            font-size: 16px;
+            line-height: 1.6;
+            color: var(--color-text);
+            background: var(--color-bg);
+        }
+        a { color: var(--color-primary); text-decoration: none; }
+        a:hover { color: var(--color-primary-dark); text-decoration: underline; }
+        h2 { margin: 2rem 0 1rem; font-size: 1.5rem; font-weight: 600; }
+        small { color: var(--color-text-muted); font-size: 0.875em; }
+
+        .container { max-width: 1200px; margin: 0 auto; padding: 1.5rem; }
+        header { margin-bottom: 1.5rem; }
+        header h1 { margin: 0 0 0.25rem; font-size: 2rem; font-weight: 600; }
+        header p { margin: 0; color: var(--color-text-muted); }
+
+        .back-link { margin-bottom: 1.5rem; }
+        .back-link a {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            font-weight: 500;
+        }
+
         .stats-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -20,70 +59,158 @@
         }
         .stat-card {
             text-align: center;
-            padding: 1rem;
-            border-radius: 8px;
-            background: var(--card-background-color);
-            box-shadow: 0 1px 3px rgba(0,0,0,.12);
+            padding: 1.25rem 1rem;
+            border-radius: var(--radius);
+            background: var(--color-surface);
+            border: 1px solid var(--color-border);
+            transition: box-shadow 0.2s, transform 0.2s;
         }
-        .stat-card .number { font-size: 2rem; font-weight: 700; }
-        .stat-card .label  { font-size: .85rem; opacity: .7; }
-        .stat-card.error   .number { color: var(--color-error); }
+        .stat-card:hover { box-shadow: var(--shadow); transform: translateY(-1px); }
+        .stat-card .number { font-size: 2.25rem; font-weight: 700; line-height: 1.2; }
+        .stat-card .label { font-size: 0.8rem; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 0.25rem; }
+        .stat-card.error .number { color: var(--color-error); }
         .stat-card.warning .number { color: var(--color-warning); }
-        .stat-card.info    .number { color: var(--color-info); }
+        .stat-card.info .number { color: var(--color-info); }
         .stat-card.success .number { color: var(--color-success); }
 
         .badge {
             display: inline-block;
-            padding: .15em .5em;
-            border-radius: 4px;
-            font-size: .8rem;
+            padding: 0.2em 0.5em;
+            border-radius: var(--radius-sm);
+            font-size: 0.75rem;
             font-weight: 600;
             text-transform: uppercase;
         }
-        .badge-error   { background: var(--color-error);   color: #fff; }
-        .badge-warning { background: var(--color-warning);  color: #fff; }
-        .badge-info    { background: var(--color-info);     color: #fff; }
+        .badge-error { background: var(--color-error); color: #fff; }
+        .badge-warning { background: var(--color-warning); color: #fff; }
+        .badge-info { background: var(--color-info); color: #fff; }
 
         .controls {
-            display: flex; gap: .5rem; flex-wrap: wrap;
-            margin-bottom: 1rem; align-items: center;
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+            margin-bottom: 1rem;
+            align-items: center;
+        }
+        .controls input[type="search"],
+        .controls select {
+            font-family: inherit;
+            font-size: 0.9375rem;
+            padding: 0.5rem 0.75rem;
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-sm);
+            background: var(--color-surface);
+            color: var(--color-text);
         }
         .controls input[type="search"] { flex: 1; min-width: 200px; }
-        .controls select { width: auto; }
+        .controls select { min-width: 150px; }
+        .controls input:focus, .controls select:focus {
+            outline: none;
+            border-color: var(--color-primary);
+            box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.15);
+        }
 
-        .issue-table td, .issue-table th { font-size: .9rem; }
-        .issue-table .col-sev  { width: 90px; }
+        .table-wrapper {
+            overflow-x: auto;
+            background: var(--color-surface);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius);
+            margin-bottom: 1.5rem;
+        }
+        table { width: 100%; border-collapse: collapse; font-size: 0.9375rem; }
+        table th {
+            text-align: left;
+            padding: 0.75rem;
+            background: var(--color-bg);
+            border-bottom: 2px solid var(--color-border);
+            font-weight: 600;
+            font-size: 0.875rem;
+        }
+        table td {
+            padding: 0.75rem;
+            border-bottom: 1px solid var(--color-border);
+            vertical-align: top;
+        }
+        table tbody tr:hover { background: #f1f3f5; }
+        table tbody tr:last-child td { border-bottom: none; }
+        .issue-table .col-sev { width: 90px; }
         .issue-table .col-step { width: 100px; }
+
+        details {
+            margin-bottom: 1rem;
+            background: var(--color-surface);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius);
+        }
+        details summary {
+            padding: 0.75rem 1rem;
+            cursor: pointer;
+            font-size: 0.9375rem;
+            user-select: none;
+        }
+        details summary:hover { background: var(--color-bg); }
+        details[open] summary { border-bottom: 1px solid var(--color-border); }
+        details > *:not(summary) { padding: 1rem; }
+
+        .steps-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            padding: 1rem;
+        }
+        .step-tag {
+            background: var(--color-bg);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-sm);
+            padding: 0.25em 0.6em;
+            font-size: 0.8125rem;
+        }
 
         .cert-section { margin-top: 2rem; }
         .cert-bar {
-            display: flex; height: 24px; border-radius: 4px; overflow: hidden;
-            margin: .5rem 0;
+            display: flex;
+            height: 20px;
+            border-radius: var(--radius-sm);
+            overflow: hidden;
+            margin: 0.5rem 0;
+            background: var(--color-border);
         }
-        .cert-bar .parsed  { background: var(--color-success); }
+        .cert-bar .parsed { background: var(--color-success); }
         .cert-bar .skipped { background: var(--color-warning); }
-        .cert-detail-table td { font-size: .85rem; }
+        .cert-detail-table { margin-top: 0.5rem; }
+        .cert-detail-table td, .cert-detail-table th { font-size: 0.8125rem; }
 
-        .steps-list {
-            display: flex; flex-wrap: wrap; gap: .4rem;
-            margin-bottom: 2rem;
+        .empty-state {
+            text-align: center;
+            padding: 3rem 2rem;
+            color: var(--color-text-muted);
         }
-        .step-tag {
-            background: var(--card-background-color);
-            border: 1px solid var(--muted-border-color);
-            border-radius: 4px; padding: .2em .6em;
-            font-size: .85rem;
+        .empty-state h2 { margin: 0 0 0.5rem; color: var(--color-success); }
+
+        footer {
+            margin-top: 3rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--color-border);
+            text-align: center;
+            color: var(--color-text-muted);
+            font-size: 0.875rem;
         }
-        .empty-state { text-align: center; padding: 2rem; opacity: .6; }
-        .back-link { margin-bottom: 1rem; }
-        .back-link a { text-decoration: none; }
+
+        @media (max-width: 768px) {
+            .container { padding: 1rem; }
+            header h1 { font-size: 1.5rem; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .stat-card .number { font-size: 1.75rem; }
+            .controls { flex-direction: column; }
+            .controls input, .controls select { width: 100%; min-width: unset; }
+        }
     </style>
 </head>
 <body>
     <main class="container">
         <header>
             <h1>{{ .Title }}</h1>
-            <p>Generated {{ .GeneratedDate }}{{ if .Duration }} &mdash; pipeline ran in {{ .Duration }}{{ end }}</p>
+            <p>Generated {{ .GeneratedDate }}{{ if .Duration }} — pipeline ran in {{ .Duration }}{{ end }}</p>
         </header>
 
         <div class="back-link">

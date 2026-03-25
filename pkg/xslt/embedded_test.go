@@ -95,7 +95,7 @@ func TestGetTSLToHTMLXSLT(t *testing.T) {
 	assert.Contains(t, contentStr, "xsl:stylesheet", "Should contain xsl:stylesheet")
 	assert.Contains(t, contentStr, "xsl:template", "Should contain xsl:template")
 	assert.Contains(t, contentStr, "TrustServiceStatusList", "Should reference TSL elements")
-	assert.Contains(t, contentStr, "PicoCSS", "Should reference PicoCSS styling")
+	assert.Contains(t, contentStr, "Design Tokens", "Should contain design system tokens")
 
 	// Verify namespace declarations
 	assert.Contains(t, contentStr, "xmlns:xsl", "Should declare xsl namespace")

@@ -151,7 +151,6 @@ func createSampleTSLHTML(t *testing.T, dirPath, filename, title, territory, sche
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>` + title + ` - Trust Service Status List</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@1/css/pico.min.css"/>
 </head>
 <body>
     <main class="container">
