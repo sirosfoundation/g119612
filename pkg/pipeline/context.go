@@ -233,7 +233,7 @@ func (ctx *Context) Copy() *Context {
 }
 
 // NewContext creates a new pipeline context with initialized fields.
-// The returned Context has a pre-initialized TSL tree stack ready to use,
+// The returned Context has a pre-initialized TSL tree stack and report ready to use,
 // but no certificate pool (which should be created with InitCertPool when needed).
 //
 // Returns:
@@ -244,6 +244,7 @@ func NewContext() *Context {
 		TSLs:     utils.NewStack[*etsi119612.TSL](),
 		LoTEs:    utils.NewStack[*etsi119602.ListOfTrustedEntities](),
 		Data:     make(map[string]any),
+		Report:   NewPipelineReport(),
 	}
 }
 
