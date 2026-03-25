@@ -75,6 +75,8 @@
             font-size: .85rem;
         }
         .empty-state { text-align: center; padding: 2rem; opacity: .6; }
+        .back-link { margin-bottom: 1rem; }
+        .back-link a { text-decoration: none; }
     </style>
 </head>
 <body>
@@ -83,6 +85,10 @@
             <h1>{{ .Title }}</h1>
             <p>Generated {{ .GeneratedDate }}{{ if .Duration }} &mdash; pipeline ran in {{ .Duration }}{{ end }}</p>
         </header>
+
+        <div class="back-link">
+            <a href="index.html">← Back to Index</a>
+        </div>
 
         <!-- Summary Cards -->
         <div class="stats-grid">
