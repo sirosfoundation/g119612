@@ -20,7 +20,7 @@
   
   <!-- Main template -->
   <xsl:template match="/">
-    <html lang="en" data-theme="light">
+    <html lang="en">
       <head>
         <meta charset="UTF-8"/>
         <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
@@ -74,32 +74,6 @@
 
           .back-link a:hover {
             opacity: 0.9;
-          }
-
-          /* Theme Toggle */
-          .theme-toggle {
-            position: fixed;
-            bottom: 2rem;
-            right: 2rem;
-            padding: 0.75rem;
-            background: var(--primary);
-            color: white;
-            border: none;
-            border-radius: 50%;
-            cursor: pointer;
-            z-index: 1000;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            width: 50px;
-            height: 50px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.5rem;
-          }
-
-          .theme-toggle:hover {
-            opacity: 0.9;
-            transform: scale(1.05);
           }
 
           /* TSL Meta Box */
@@ -282,20 +256,6 @@
             font-size: 0.9rem;
           }
           
-          /* Dark mode compatibility */
-          @media (prefers-color-scheme: dark) {
-            :root:not([data-theme="light"]) {
-              --badge-qualified-bg: #27ae60;
-              --badge-nonqualified-bg: #f39c12;
-              --badge-granted-bg: #2ecc71;
-              --badge-withdrawn-bg: #e74c3c;
-            }
-
-            .cert-data {
-              background-color: #1a1a1a;
-            }
-          }
-
           /* Mobile Responsiveness */
           @media (max-width: 768px) {
             .container {
@@ -347,14 +307,6 @@
               font-size: 1.1rem;
             }
 
-            .theme-toggle {
-              bottom: 1rem;
-              right: 1rem;
-              width: 45px;
-              height: 45px;
-              font-size: 1.25rem;
-            }
-
             /* Stack table rows vertically on very small screens */
             @media (max-width: 480px) {
               table {
@@ -369,7 +321,6 @@
 
           /* Print Styles */
           @media print {
-            .theme-toggle,
             nav,
             .back-link {
               display: none;
@@ -395,8 +346,6 @@
         </style>
       </head>
       <body>
-        <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode">🌓</button>
-        
         <main class="container">
           <xsl:apply-templates select="tsl:TrustServiceStatusList"/>
           
@@ -407,22 +356,6 @@
         </main>
 
         <script>
-          // Theme toggle functionality
-          function toggleTheme() {
-            const html = document.documentElement;
-            const currentTheme = html.getAttribute('data-theme');
-            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-            html.setAttribute('data-theme', newTheme);
-            localStorage.setItem('theme', newTheme);
-          }
-
-          // Load saved theme
-          document.addEventListener('DOMContentLoaded', function() {
-            const savedTheme = localStorage.getItem('theme') || 
-              (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-            document.documentElement.setAttribute('data-theme', savedTheme);
-          });
-
           // Smooth scroll to sections
           document.querySelectorAll('a[href^="#"]').forEach(anchor => {
             anchor.addEventListener('click', function (e) {

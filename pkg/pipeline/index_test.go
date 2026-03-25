@@ -146,7 +146,7 @@ func TestGenerateIndex(t *testing.T) {
 func createSampleTSLHTML(t *testing.T, dirPath, filename, title, territory, schemeType, sequence, issueDate, nextUpdate string, services int) {
 	// Create a minimal HTML structure that mimics a TSL HTML file
 	htmlContent := `<!DOCTYPE html>
-<html lang="en" data-theme="light">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">

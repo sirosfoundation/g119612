@@ -72,20 +72,6 @@ header h1 {
     margin-bottom: 0;
 }
 
-.theme-toggle {
-    padding: 0.5rem 1rem;
-    background: var(--primary);
-    color: white;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    white-space: nowrap;
-}
-
-.theme-toggle:hover {
-    opacity: 0.9;
-}
-
 /* Badge Styles */
 .badge {
     display: inline-block;
@@ -242,15 +228,6 @@ table tbody tr:hover {
 
     .tsl-title {
         font-size: 0.85rem;
-    }
-}
-
-/* Dark mode compatibility */
-@media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-        --badge-qualified-bg: #27ae60;
-        --badge-nonqualified-bg: #f39c12;
-        --badge-info-bg: #3498db;
     }
 }
 

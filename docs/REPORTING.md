@@ -12,7 +12,7 @@ The HTML report includes:
 - **Pipeline steps list**: Numbered execution order of pipeline steps
 - **Issues table**: Searchable and filterable by severity and step name
 - **Certificate parsing details**: Per-TSL expandable sections with progress bars
-- **Interactive features**: Dark mode toggle, search/filter controls
+- **Interactive features**: Search/filter controls
 
 ## Usage
 
@@ -134,7 +134,6 @@ The report provides these aggregate metrics:
 The generated HTML report includes:
 
 - **Responsive design** using PicoCSS
-- **Light/dark mode** toggle
 - **Search** across all issue text
 - **Filter dropdowns** for severity and step name
 - **Progress bars** for certificate parsing rates
