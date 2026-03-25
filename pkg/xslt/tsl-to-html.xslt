@@ -68,8 +68,52 @@
 
           .container { max-width: 1200px; margin: 0 auto; padding: 1.5rem; }
 
-          /* Header and Navigation */
-          header { margin-bottom: 1.5rem; }
+          /* Site Header */
+          .site-header {
+            background: var(--color-surface);
+            border-bottom: 1px solid var(--color-border);
+            padding: 0.75rem 0;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+          }
+          .site-header .container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+          }
+          .logo {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            text-decoration: none;
+            color: inherit;
+          }
+          .logo:hover { text-decoration: none; }
+          .logo-image { width: 36px; height: 36px; flex-shrink: 0; }
+          .logo-text { font-size: 1.25rem; font-weight: 700; color: var(--color-text); }
+          .logo-subtitle {
+            font-size: 0.875rem;
+            color: var(--color-text-muted);
+            margin-left: 0.5rem;
+            padding-left: 0.75rem;
+            border-left: 1px solid var(--color-border);
+          }
+          .main-nav { display: flex; align-items: center; gap: 1.5rem; }
+          .main-nav a {
+            font-size: 0.9375rem;
+            color: var(--color-text-muted);
+            text-decoration: none;
+            transition: color 0.15s;
+          }
+          .main-nav a:hover { color: var(--color-primary); text-decoration: none; }
+          .nav-github { display: inline-flex; align-items: center; gap: 0.375rem; }
+          .nav-github svg { width: 18px; height: 18px; }
+
+          /* Page Header and Navigation */
+          .page-header { margin-bottom: 1.5rem; }
           nav {
             display: flex;
             justify-content: space-between;
@@ -233,16 +277,41 @@
             table th { width: 120px; }
             .badge { font-size: 0.6875rem; }
           }
+          @media (max-width: 600px) {
+            .logo-subtitle { display: none; }
+            .main-nav { gap: 1rem; }
+          }
 
           /* Print Styles */
           @media print {
-            nav, .back-link { display: none; }
+            .site-header, nav, .back-link { display: none; }
             body { background: white; }
             details[open] summary { display: block; }
           }
         </style>
       </head>
       <body>
+        <header class="site-header">
+          <div class="container">
+            <a href="index.html" class="logo">
+              <svg class="logo-image" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect width="512" height="512" rx="256" fill="white"/>
+                <path fill-rule="evenodd" clip-rule="evenodd" d="M187.096 102.215C199.23 181.029 199.23 181.029 278.044 193.221C199.257 205.35 199.23 205.528 187.108 284.202C187.104 284.229 187.1 284.257 187.096 284.284C174.904 205.412 174.904 205.412 96.0903 193.221C174.904 181.029 174.904 181.029 187.096 102.215ZM193.221 329.469C331.318 308.09 331.318 308.09 352.697 169.935C373.498 304.565 374.018 308.032 501.773 327.851C508.418 305.027 512 280.933 512 256.029C512 114.58 397.42 0 255.971 0C114.58 0 0 114.58 0 256.029C0 397.42 114.58 512 255.971 512C371.245 512 468.664 435.902 500.79 331.202C373.961 350.848 373.441 354.893 352.697 488.887C331.318 350.79 331.318 350.79 193.221 329.469Z" fill="#1C4587"/>
+              </svg>
+              <span class="logo-text">g119612</span>
+              <span class="logo-subtitle">Trust List Pipeline</span>
+            </a>
+            <nav class="main-nav">
+              <a href="index.html">Index</a>
+              <a href="report.html">Report</a>
+              <a href="https://github.com/sirosfoundation/g119612" class="nav-github" target="_blank" rel="noopener">
+                <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                GitHub
+              </a>
+            </nav>
+          </div>
+        </header>
+
         <main class="container">
           <xsl:apply-templates select="tsl:TrustServiceStatusList"/>
           
@@ -269,12 +338,7 @@
   
   <!-- Process the Trust Service Status List -->
   <xsl:template match="tsl:TrustServiceStatusList">
-    <!-- Back to Index Link -->
-    <div class="back-link">
-      <a href="index.html">← Back to Index</a>
-    </div>
-
-    <header>
+    <div class="page-header">
       <nav>
         <ul>
           <li><strong>
@@ -287,7 +351,7 @@
           <li><a href="#tsp-list" role="button">Service Providers</a></li>
         </ul>
       </nav>
-    </header>
+    </div>
     
     <div class="tsl-meta">
       <p>

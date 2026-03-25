@@ -9,11 +9,32 @@
     </style>
 </head>
 <body>
+    <header class="site-header">
+        <div class="container">
+            <a href="index.html" class="logo">
+                <svg class="logo-image" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="512" height="512" rx="256" fill="white"/>
+                    <path fill-rule="evenodd" clip-rule="evenodd" d="M187.096 102.215C199.23 181.029 199.23 181.029 278.044 193.221C199.257 205.35 199.23 205.528 187.108 284.202C187.104 284.229 187.1 284.257 187.096 284.284C174.904 205.412 174.904 205.412 96.0903 193.221C174.904 181.029 174.904 181.029 187.096 102.215ZM193.221 329.469C331.318 308.09 331.318 308.09 352.697 169.935C373.498 304.565 374.018 308.032 501.773 327.851C508.418 305.027 512 280.933 512 256.029C512 114.58 397.42 0 255.971 0C114.58 0 0 114.58 0 256.029C0 397.42 114.58 512 255.971 512C371.245 512 468.664 435.902 500.79 331.202C373.961 350.848 373.441 354.893 352.697 488.887C331.318 350.79 331.318 350.79 193.221 329.469Z" fill="#1C4587"/>
+                </svg>
+                <span class="logo-text">g119612</span>
+                <span class="logo-subtitle">Trust List Pipeline</span>
+            </a>
+            <nav class="main-nav">
+                <a href="index.html">Index</a>
+                <a href="report.html">Report</a>
+                <a href="https://github.com/sirosfoundation/g119612" class="nav-github" target="_blank" rel="noopener">
+                    <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                    GitHub
+                </a>
+            </nav>
+        </div>
+    </header>
+
     <main class="container">
-        <header>
+        <div class="page-header">
             <h1>{{ .Title }}</h1>
             <p>ETSI Trust Service Status Lists</p>
-        </header>
+        </div>
 
         {{ if .ReportLink }}
         <div class="report-banner{{ if gt .ReportErrors 0 }} has-errors{{ else if gt .ReportWarnings 0 }} has-warnings{{ end }}">
