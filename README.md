@@ -130,6 +130,8 @@ Create a YAML file defining your processing steps:
 - generate_index:
     - /var/www/html/tsl
     - "EU Trust Lists"
+    # generates both index.html and report.html
+    # add 'no-report' to skip report generation
 ```
 
 #### Brainpool / Extended Crypto Support
@@ -166,7 +168,8 @@ ctx.CryptoExt = ext
 | `transform` | Apply XSLT transformation to generate HTML |
 | `publish` | Write TSLs to output files |
 | `generate` | Generate new TSL from metadata |
-| `generate_index` | Create HTML index page for TSL collection |
+| `generate_index` | Create HTML index page + pipeline report |
+| `report` | Generate standalone pipeline report |
 | `log` | Output messages to the log |
 | `set-fetch-options` | Configure HTTP client options |
 | `echo` | No-op placeholder step |

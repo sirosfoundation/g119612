@@ -38,7 +38,7 @@ type certStatsNumbers struct {
 //
 // Example usage in pipeline YAML:
 //
-//	- report: [/output/report.html, "EU LOTL Pipeline Report"]
+//   - report: [/output/report.html, "EU LOTL Pipeline Report"]
 func GenerateReport(pl *Pipeline, ctx *Context, args ...string) (*Context, error) {
 	if len(args) < 1 {
 		return ctx, fmt.Errorf("report: %w: missing output file path", ErrInvalidArguments)
@@ -49,6 +49,15 @@ func GenerateReport(pl *Pipeline, ctx *Context, args ...string) (*Context, error
 		title = args[1]
 	}
 
+	if err := RenderReportToFile(ctx, outPath, title, pl); err != nil {
+		return ctx, err
+	}
+	return ctx, nil
+}
+
+// RenderReportToFile writes the pipeline report to an HTML file.
+// This is the core rendering function used by both the report step and generate_index.
+func RenderReportToFile(ctx *Context, outPath, title string, pl *Pipeline) error {
 	ctx.EnsureReport()
 	report := ctx.Report
 	report.Title = title
@@ -56,7 +65,7 @@ func GenerateReport(pl *Pipeline, ctx *Context, args ...string) (*Context, error
 	// Ensure the output directory exists.
 	if dir := filepath.Dir(outPath); dir != "." {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
-			return ctx, fmt.Errorf("report: cannot create output directory: %w", err)
+			return fmt.Errorf("report: cannot create output directory: %w", err)
 		}
 	}
 
@@ -137,17 +146,17 @@ func GenerateReport(pl *Pipeline, ctx *Context, args ...string) (*Context, error
 
 	tmpl, err := template.New("report").Funcs(funcMap).Parse(reportHTMLTemplate)
 	if err != nil {
-		return ctx, fmt.Errorf("report: template parse error: %w", err)
+		return fmt.Errorf("report: template parse error: %w", err)
 	}
 
 	f, err := os.Create(outPath)
 	if err != nil {
-		return ctx, fmt.Errorf("report: cannot create output file: %w", err)
+		return fmt.Errorf("report: cannot create output file: %w", err)
 	}
 	defer f.Close()
 
 	if err := tmpl.Execute(f, data); err != nil {
-		return ctx, fmt.Errorf("report: template execution error: %w", err)
+		return fmt.Errorf("report: template execution error: %w", err)
 	}
 
 	if pl != nil && pl.Logger != nil {
@@ -159,7 +168,7 @@ func GenerateReport(pl *Pipeline, ctx *Context, args ...string) (*Context, error
 			logging.F("cert_sources", len(report.CertStats)))
 	}
 
-	return ctx, nil
+	return nil
 }
 
 func init() {

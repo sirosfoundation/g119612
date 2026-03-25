@@ -119,7 +119,8 @@ Pipeline Steps:
   transform        Apply XSLT transformation
   publish          Write TSLs to files
   generate         Generate new TSL from metadata
-  generate_index   Generate HTML index of TSL files
+  generate_index   Generate HTML index of TSL files (includes report by default)
+  report           Generate standalone pipeline report (deprecated, use generate_index)
   log              Output messages to log
   set-fetch-options Configure HTTP fetch options
   echo             No-op placeholder step
@@ -143,6 +144,7 @@ Example pipeline.yaml:
   - generate_index:
       - /var/www/html/tsl
       - "EU Trust Lists"
+      # add 'no-report' to skip report.html generation
 
 See: https://github.com/sirosfoundation/g119612
 

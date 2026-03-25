@@ -29,28 +29,28 @@ type ReportIssue struct {
 
 // CertSummary aggregates certificate parsing statistics per TSL source.
 type CertSummary struct {
-	Source  string                                    // TSL source URL or file path
-	Stats   *etsi119612.CertParseStats               // Aggregate stats for this source
-	Details []CertIssueDetail                         // Individual certificate issues
+	Source  string                     // TSL source URL or file path
+	Stats   *etsi119612.CertParseStats // Aggregate stats for this source
+	Details []CertIssueDetail          // Individual certificate issues
 }
 
 // CertIssueDetail describes a single certificate parsing failure.
 type CertIssueDetail struct {
-	TSP       string                         // Trust Service Provider name
-	Service   string                         // Trust service name
-	ErrorKind etsi119612.CertParseErrorKind  // Classification of the error
-	Detail    string                         // Error message or certificate subject hint
+	TSP       string                        // Trust Service Provider name
+	Service   string                        // Trust service name
+	ErrorKind etsi119612.CertParseErrorKind // Classification of the error
+	Detail    string                        // Error message or certificate subject hint
 }
 
 // PipelineReport accumulates issues and statistics across all pipeline steps.
 // It is attached to the pipeline Context and can be populated by any step.
 // The "report" pipeline step renders its contents to an HTML file.
 type PipelineReport struct {
-	Title      string        // Report title (set by the report step or caller)
-	Issues     []ReportIssue // All issues, in order of recording
-	CertStats  []CertSummary // Per-source certificate parsing summaries
-	StepsRun   []string      // Names of steps executed so far
-	StartTime  time.Time     // When the pipeline started
+	Title     string        // Report title (set by the report step or caller)
+	Issues    []ReportIssue // All issues, in order of recording
+	CertStats []CertSummary // Per-source certificate parsing summaries
+	StepsRun  []string      // Names of steps executed so far
+	StartTime time.Time     // When the pipeline started
 }
 
 // NewPipelineReport creates an empty report, recording the current time as start.
