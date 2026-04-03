@@ -3,7 +3,6 @@
 package jws_test
 
 import (
-	"os"
 	"testing"
 
 	"github.com/sirosfoundation/g119612/pkg/dsig"
@@ -16,10 +15,6 @@ import (
 // TestPKCS11Signer_SoftHSM_Integration tests signing with a real SoftHSM2 token.
 // Only runs with: go test -tags softhsm ./pkg/jws/
 func TestPKCS11Signer_SoftHSM_Integration(t *testing.T) {
-	if os.Getenv("CI") != "" {
-		t.Skip("Skipping SoftHSM test in CI environment")
-	}
-
 	helper := dtest.SkipIfSoftHSMUnavailable(t)
 
 	err := helper.Setup()

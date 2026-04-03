@@ -1,3 +1,5 @@
+//go:build softhsm
+
 package pipeline
 
 import (
@@ -12,15 +14,6 @@ import (
 )
 
 func TestPKCS11SignerWithSoftHSM(t *testing.T) {
-	// Skip this test as it's not directly related to our TSLFetchOptions changes
-	// and requires complex setup with SoftHSM
-	t.Skip("Skipping PKCS11 test for now as it needs more complex fixing")
-	// Skip if we're running in a CI environment without proper SoftHSM setup
-	if os.Getenv("CI") != "" {
-		t.Skip("Skipping SoftHSM test in CI environment")
-	}
-
-	// Skip the test if SoftHSM is not available
 	helper := test.SkipIfSoftHSMUnavailable(t)
 
 	// Set up SoftHSM token
@@ -75,18 +68,18 @@ func TestPKCS11SignerWithSoftHSM(t *testing.T) {
 	testFile := filepath.Join(testDir, "test-tsl.xml")
 
 	// Create a pipeline and context
-	pipeline, _ := NewPipeline("test-pipeline")
-	// Ensure the pipeline has a logger
-	pipeline.Logger = logging.NewLogger(logging.DebugLevel)
+	pl := &Pipeline{
+		Logger: logging.NewLogger(logging.DebugLevel),
+	}
 	context := NewContext()
 
 	// Initialize TSLFetchOptions
-	context, err = SetFetchOptions(pipeline, context)
+	context, err = SetFetchOptions(pl, context)
 	assert.NoError(t, err, "Setting fetch options should succeed")
 
 	// Load a sample TSL
 	loadSampleTSL(t, testFile)
-	ctx, err := LoadTSL(pipeline, context, testFile)
+	ctx, err := LoadTSL(pl, context, testFile)
 	assert.NoError(t, err, "Loading TSL should succeed")
 	assert.NotNil(t, ctx, "Context should not be nil")
 
@@ -96,11 +89,11 @@ func TestPKCS11SignerWithSoftHSM(t *testing.T) {
 	assert.NoError(t, err, "Creating output directory should succeed")
 
 	// Publish the TSL with PKCS11 signing
-	_, err = PublishTSL(pipeline, ctx, outputDir, pkcs11URI, keyLabel, certLabel, keyID)
+	_, err = PublishTSL(pl, ctx, outputDir, pkcs11URI, keyLabel, certLabel, keyID)
 	assert.NoError(t, err, "Publishing TSL with PKCS11 signing should succeed")
 
-	// Check that the file was created
-	publishedFile := filepath.Join(outputDir, "test-tsl.xml")
+	// Check that the file was created (PublishTSL uses tsl-{index}.xml when no distribution point is set)
+	publishedFile := filepath.Join(outputDir, "tsl-0.xml")
 	_, err = os.Stat(publishedFile)
 	assert.NoError(t, err, "Published file should exist")
 

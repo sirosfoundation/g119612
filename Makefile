@@ -10,7 +10,7 @@ install-go-test-coverage:
 
 .PHONY: check-coverage ## check test coverage and generate report
 check-coverage: install-go-test-coverage ## generate coverage report
-	go test ./... -coverprofile=./cover.out -covermode=atomic -coverpkg=./...
+	go test -tags softhsm ./... -coverprofile=./cover.out -covermode=atomic -coverpkg=./...
 	${GOBIN}/go-test-coverage --config=./.testcoverage.yml
 
 .PHONY: default
@@ -23,7 +23,7 @@ help: ## help information about make commands
 
 .PHONY: test
 test:
-	go test -v ./...
+	go test -tags softhsm -v ./...
 
 .PHONY: build
 build: tsl-tool ## build tsl-tool binary

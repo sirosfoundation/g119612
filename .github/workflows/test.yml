@@ -13,10 +13,12 @@ jobs:
     - uses: actions/setup-go@v5
       with:
          go-version: ${{ matrix.go-version }}
+    - name: install softhsm2
+      run: sudo apt-get update && sudo apt-get install -y softhsm2 opensc
     - name: run tests
       run: make test
     - name: generate test coverage
-      run: go test ./... -coverprofile=./cover.out -covermode=atomic -coverpkg=./...
+      run: go test -tags softhsm ./... -coverprofile=./cover.out -covermode=atomic -coverpkg=./...
     - name: check test coverage
       uses: vladopajic/go-test-coverage@v2
       with:
