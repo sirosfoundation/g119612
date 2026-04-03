@@ -145,7 +145,7 @@ func TestPublishTSL_InvalidCertPath(t *testing.T) {
 	_, err = PublishTSL(pl, ctx, tmpDir, "/nonexistent/cert.pem", "/some/key.pem")
 	assert.Error(t, err)
 	// The error comes from the signing step, not validation
-	assert.Contains(t, err.Error(), "failed to sign TSL")
+	assert.Contains(t, err.Error(), "failed to sign XML")
 }
 
 // TestPublishTSL_InvalidKeyPath tests PublishTSL with invalid key file path
@@ -179,7 +179,7 @@ func TestPublishTSL_InvalidKeyPath(t *testing.T) {
 	_, err = PublishTSL(pl, ctx, tmpDir, certFile, "/nonexistent/key.pem")
 	assert.Error(t, err)
 	// The error comes from the signing step, not validation
-	assert.Contains(t, err.Error(), "failed to sign TSL")
+	assert.Contains(t, err.Error(), "failed to sign XML")
 }
 
 // TestPublishTSL_PKCS11Signer tests PublishTSL with PKCS#11 signer configuration

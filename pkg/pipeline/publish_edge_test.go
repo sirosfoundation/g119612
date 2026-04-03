@@ -60,7 +60,7 @@ func TestPublishStep_SigningError(t *testing.T) {
 	// Test with invalid certificate path - will fail during signing
 	_, err = PublishTSL(pl, ctx, testDir, "/nonexistent/cert.pem", "/nonexistent/key.pem")
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to sign TSL")
+	assert.Contains(t, err.Error(), "failed to sign XML")
 }
 
 // TestPublishStep_DirectoryCreation tests automatic directory creation

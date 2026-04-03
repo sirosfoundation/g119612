@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/sirosfoundation/g119612/pkg/logging"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -163,4 +164,145 @@ status: "http://test.example.com/status/valid"
 			}
 		})
 	}
+}
+
+// TestGenerateTSL_Success tests successful TSL generation with proper attributes
+func TestGenerateTSL_Success(t *testing.T) {
+	// Create a valid test directory structure
+	dir, err := os.MkdirTemp("", "tsl-success-test-*")
+	assert.NoError(t, err)
+	defer os.RemoveAll(dir)
+
+	// Create providers directory
+	err = os.MkdirAll(filepath.Join(dir, "providers", "test_provider"), 0755)
+	assert.NoError(t, err)
+
+	// Write valid scheme.yaml
+	schemeYAML := `operatorNames:
+  - language: en
+    value: "Test Operator"
+  - language: sv
+    value: "Test Operatör"
+type: "http://uri.etsi.org/TrstSvc/TrustedList/TSLType/EUgeneric"
+sequenceNumber: 1
+`
+	err = os.WriteFile(filepath.Join(dir, "scheme.yaml"), []byte(schemeYAML), 0644)
+	assert.NoError(t, err)
+
+	// Write valid provider.yaml
+	providerYAML := `names:
+  - language: en
+    value: "Test Provider Inc"
+`
+	err = os.WriteFile(filepath.Join(dir, "providers", "test_provider", "provider.yaml"), []byte(providerYAML), 0644)
+	assert.NoError(t, err)
+
+	// Run the GenerateTSL step
+	ctx := NewContext()
+	ctx, err = GenerateTSL(nil, ctx, dir)
+	assert.NoError(t, err)
+
+	// Verify the TSL was created
+	assert.NotNil(t, ctx.TSLs)
+	assert.False(t, ctx.TSLs.IsEmpty())
+
+	// Get the generated TSL
+	tsl, ok := ctx.TSLs.Peek()
+	assert.True(t, ok, "Should be able to peek TSL from stack")
+	assert.NotNil(t, tsl)
+
+	// Verify TSLTag and Id attributes are set
+	assert.Equal(t, "http://uri.etsi.org/19612/TSLTag", tsl.StatusList.TSLTagAttr, "TSLTag should be set")
+	assert.Equal(t, "TSL-001", tsl.StatusList.IdAttr, "Id should default to TSL-001 for sequenceNumber 1")
+
+	// Verify scheme information
+	assert.NotNil(t, tsl.StatusList.TslSchemeInformation)
+	assert.Equal(t, "http://uri.etsi.org/TrstSvc/TrustedList/TSLType/EUgeneric", tsl.StatusList.TslSchemeInformation.TslTSLType)
+	assert.Equal(t, 1, tsl.StatusList.TslSchemeInformation.TSLVersionIdentifier)
+}
+
+// TestGenerateTSL_CustomId tests that a custom id from scheme.yaml is used
+func TestGenerateTSL_CustomId(t *testing.T) {
+	dir, err := os.MkdirTemp("", "tsl-custom-id-test-*")
+	assert.NoError(t, err)
+	defer os.RemoveAll(dir)
+
+	err = os.MkdirAll(filepath.Join(dir, "providers", "test_provider"), 0755)
+	assert.NoError(t, err)
+
+	schemeYAML := `operatorNames:
+  - language: en
+    value: "Test Operator"
+type: "http://uri.etsi.org/TrstSvc/TrustedList/TSLType/EUgeneric"
+sequenceNumber: 42
+id: "MY-CUSTOM-TSL"
+`
+	err = os.WriteFile(filepath.Join(dir, "scheme.yaml"), []byte(schemeYAML), 0644)
+	assert.NoError(t, err)
+
+	providerYAML := `names:
+  - language: en
+    value: "Test Provider"
+`
+	err = os.WriteFile(filepath.Join(dir, "providers", "test_provider", "provider.yaml"), []byte(providerYAML), 0644)
+	assert.NoError(t, err)
+
+	ctx := NewContext()
+	ctx, err = GenerateTSL(nil, ctx, dir)
+	assert.NoError(t, err)
+
+	tsl, ok := ctx.TSLs.Peek()
+	assert.True(t, ok)
+	assert.Equal(t, "MY-CUSTOM-TSL", tsl.StatusList.IdAttr, "Custom id from scheme.yaml should be used")
+}
+
+// TestPublishTSL_XMLNamespacesAndAttributes verifies the generated XML has correct namespaces and attributes
+func TestPublishTSL_XMLNamespacesAndAttributes(t *testing.T) {
+	// Create a temporary output directory
+	outputDir, err := os.MkdirTemp("", "tsl-publish-test-*")
+	assert.NoError(t, err)
+	defer os.RemoveAll(outputDir)
+
+	// Create a TSL with TSLTag and Id attributes
+	tsl := generateTSL("Test Service", "http://uri.etsi.org/TrstSvc/Svctype/CA/QC", []string{TestCertBase64})
+	tsl.StatusList.TSLTagAttr = "http://uri.etsi.org/19612/TSLTag"
+	tsl.StatusList.IdAttr = "TSL-TEST-001"
+
+	// Set up context
+	ctx := &Context{}
+	ctx.EnsureTSLStack().TSLs.Push(tsl)
+
+	// Run publish
+	pl := &Pipeline{
+		Logger: logging.NewLogger(logging.DebugLevel),
+	}
+	_, err = PublishTSL(pl, ctx, outputDir)
+	assert.NoError(t, err)
+
+	// Read the generated XML
+	content, err := os.ReadFile(filepath.Join(outputDir, "tsl-0.xml"))
+	assert.NoError(t, err)
+	xmlStr := string(content)
+
+	// Verify XML declaration
+	assert.Contains(t, xmlStr, `<?xml version="1.0" encoding="UTF-8"?>`, "Should have XML declaration")
+
+	// Verify namespaces
+	assert.Contains(t, xmlStr, `xmlns="http://uri.etsi.org/02231/v2#"`, "Should have default ETSI TSL namespace")
+	assert.Contains(t, xmlStr, `xmlns:ns2="http://www.w3.org/2000/09/xmldsig#"`, "Should have XML-DSIG namespace")
+	assert.Contains(t, xmlStr, `xmlns:ns6="http://uri.etsi.org/01903/v1.4.1#"`, "Should have XAdES namespace")
+
+	// Verify TSLTag attribute
+	assert.Contains(t, xmlStr, `TSLTag="http://uri.etsi.org/19612/TSLTag"`, "Should have TSLTag attribute")
+
+	// Verify Id attribute
+	assert.Contains(t, xmlStr, `Id="TSL-TEST-001"`, "Should have Id attribute")
+
+	// Verify root element structure
+	assert.Contains(t, xmlStr, "<TrustServiceStatusList", "Should have TrustServiceStatusList root element")
+	assert.Contains(t, xmlStr, "</TrustServiceStatusList>", "Should have closing TrustServiceStatusList tag")
+
+	// Verify it's well-formed (basic check)
+	assert.Contains(t, xmlStr, "<SchemeInformation>", "Should have SchemeInformation element")
+	assert.Contains(t, xmlStr, "<TrustServiceProviderList>", "Should have TrustServiceProviderList element")
 }

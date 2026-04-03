@@ -1,14 +1,13 @@
 package pipeline
 
 import (
-	"encoding/xml"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/sirosfoundation/g119612/pkg/etsi119612"
 	"github.com/sirosfoundation/g119612/pkg/dsig"
+	"github.com/sirosfoundation/g119612/pkg/etsi119612"
 	"github.com/sirosfoundation/g119612/pkg/logging"
 	"github.com/sirosfoundation/g119612/pkg/validation"
 )
@@ -136,36 +135,9 @@ func PublishTSL(pl *Pipeline, ctx *Context, args ...string) (*Context, error) {
 			// Construct the full file path
 			filePath := filepath.Join(dirPath, filename)
 
-			// Create XML representation with root element
-			type TrustStatusListWrapper struct {
-				XMLName xml.Name                       `xml:"TrustServiceStatusList"`
-				List    etsi119612.TrustStatusListType `xml:",innerxml"`
+			if err := publishTSLToFile(pl, tsl, filePath, signer); err != nil {
+				return ctx, err
 			}
-			wrapper := TrustStatusListWrapper{List: tsl.StatusList}
-			xmlContent, err := xml.MarshalIndent(wrapper, "", "  ")
-			if err != nil {
-				return ctx, fmt.Errorf("failed to marshal TSL to XML: %w", err)
-			}
-
-			// Add XML header
-			xmlContent = append([]byte(xml.Header), xmlContent...)
-
-			if signer != nil {
-				xmlContent, err = signer.Sign(xmlContent)
-				if err != nil {
-					return ctx, fmt.Errorf("failed to sign TSL: %w", err)
-				}
-			}
-
-			// Write the TSL to file
-			if err := os.WriteFile(filePath, xmlContent, 0644); err != nil {
-				return ctx, fmt.Errorf("failed to write TSL to %s: %w", filePath, err)
-			}
-
-			pl.Logger.Info("Published TSL",
-				logging.F("file", filePath),
-				logging.F("signed", signer != nil),
-				logging.F("size", len(xmlContent)))
 		}
 
 		return ctx, nil
@@ -308,32 +280,9 @@ func PublishTSL(pl *Pipeline, ctx *Context, args ...string) (*Context, error) {
 				logging.F("index", i),
 				logging.F("filename", filename))
 
-			// Create XML representation with root element
-			type TrustStatusListWrapper struct {
-				XMLName xml.Name                       `xml:"TrustServiceStatusList"`
-				List    etsi119612.TrustStatusListType `xml:",innerxml"`
-			}
-			wrapper := TrustStatusListWrapper{List: tsl.StatusList}
-			xmlData, err := xml.MarshalIndent(wrapper, "", "  ")
-			if err != nil {
-				return ctx, fmt.Errorf("failed to marshal TSL to XML: %w", err)
-			}
-
-			// Add XML header
-			xmlData = append([]byte(xml.Header), xmlData...)
-
-			// Sign the XML if a signer is provided
-			if signer != nil {
-				xmlData, err = signer.Sign(xmlData)
-				if err != nil {
-					return ctx, fmt.Errorf("failed to sign XML: %w", err)
-				}
-			}
-
-			// Write to file
 			filePath := filepath.Join(dirPath, filename)
-			if err := os.WriteFile(filePath, xmlData, 0644); err != nil {
-				return ctx, fmt.Errorf("failed to write TSL to file %s: %w", filePath, err)
+			if err := publishTSLToFile(pl, tsl, filePath, signer); err != nil {
+				return ctx, err
 			}
 		}
 	}

@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/sirosfoundation/g119612/pkg/etsi119612"
 	"github.com/sirosfoundation/g119612/pkg/dsig"
+	"github.com/sirosfoundation/g119612/pkg/etsi119612"
 	"github.com/sirosfoundation/g119612/pkg/logging"
 )
 
@@ -52,25 +52,48 @@ func processTreeForPublishing(pl *Pipeline, ctx *Context, tree *TSLTree, baseDir
 	return processNodeForPublishing(pl, ctx, tree.Root, treeDir, 0, signer)
 }
 
+// trustStatusListWrapper is the XML wrapper for serializing a TrustStatusListType
+// with proper namespace declarations. The TSLTag and Id attributes are carried
+// by the embedded TrustStatusListType and must not be duplicated here.
+type trustStatusListWrapper struct {
+	XMLName    xml.Name `xml:"TrustServiceStatusList"`
+	Xmlns      string   `xml:"xmlns,attr"`
+	XmlnsDs    string   `xml:"xmlns:ns2,attr"`
+	XmlnsXades string   `xml:"xmlns:ns6,attr"`
+	etsi119612.TrustStatusListType
+}
+
+// marshalTSLToXML serializes a TSL to XML with proper namespace declarations,
+// root-level attributes, and an XML header.
+func marshalTSLToXML(tsl *etsi119612.TSL) ([]byte, error) {
+	if tsl == nil {
+		return nil, fmt.Errorf("cannot marshal nil TSL")
+	}
+	wrapper := trustStatusListWrapper{
+		Xmlns:               "http://uri.etsi.org/02231/v2#",
+		XmlnsDs:             "http://www.w3.org/2000/09/xmldsig#",
+		XmlnsXades:          "http://uri.etsi.org/01903/v1.4.1#",
+		TrustStatusListType: tsl.StatusList,
+	}
+
+	xmlData, err := xml.MarshalIndent(wrapper, "", "  ")
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal TSL to XML: %w", err)
+	}
+
+	return append([]byte(xml.Header), xmlData...), nil
+}
+
 // publishTSLToFile writes a TSL to a file, optionally signing it
 func publishTSLToFile(pl *Pipeline, tsl *etsi119612.TSL, filePath string, signer dsig.XMLSigner) error {
 	if tsl == nil {
 		return fmt.Errorf("cannot publish nil TSL")
 	}
 
-	// Create XML representation with root element
-	type TrustStatusListWrapper struct {
-		XMLName xml.Name                       `xml:"TrustServiceStatusList"`
-		List    etsi119612.TrustStatusListType `xml:",innerxml"`
-	}
-	wrapper := TrustStatusListWrapper{List: tsl.StatusList}
-	xmlData, err := xml.MarshalIndent(wrapper, "", "  ")
+	xmlData, err := marshalTSLToXML(tsl)
 	if err != nil {
-		return fmt.Errorf("failed to marshal TSL to XML: %w", err)
+		return err
 	}
-
-	// Add XML header
-	xmlData = append([]byte(xml.Header), xmlData...)
 
 	// Sign the XML if a signer is provided
 	if signer != nil {
