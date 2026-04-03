@@ -53,6 +53,17 @@ type SchemeMetadata struct {
 	OperatorNames  []MultiLangName `yaml:"operatorNames"`            // At least one name required
 	Type           string          `yaml:"type"`                     // URI identifying the TSL type
 	SequenceNumber int             `yaml:"sequenceNumber,omitempty"` // TSL sequence number
+	Id             string          `yaml:"id,omitempty"`             // Optional TSL Id attribute
+}
+
+// TslId returns the TSL Id attribute value.
+// If an explicit Id is set in the metadata, it is returned as-is.
+// Otherwise a default is derived from the sequence number (e.g. "TSL-001").
+func (m *SchemeMetadata) TslId() string {
+	if m.Id != "" {
+		return m.Id
+	}
+	return fmt.Sprintf("TSL-%03d", m.SequenceNumber)
 }
 
 // loadSchemeMetadata loads and parses the scheme metadata from the scheme.yaml file.
@@ -383,7 +394,7 @@ func GenerateTSL(pl *Pipeline, ctx *Context, args ...string) (*Context, error) {
 	tsl := &etsi119612.TSL{
 		StatusList: etsi119612.TrustStatusListType{
 			TSLTagAttr: "http://uri.etsi.org/19612/TSLTag",
-			IdAttr:     "TSL-001",
+			IdAttr:     schemeMetadata.TslId(),
 			TslSchemeInformation: &etsi119612.TSLSchemeInformationType{
 				TSLVersionIdentifier: int(schemeMetadata.SequenceNumber),
 				TslTSLType:           schemeMetadata.Type,

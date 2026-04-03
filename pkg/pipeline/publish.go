@@ -52,23 +52,25 @@ func processTreeForPublishing(pl *Pipeline, ctx *Context, tree *TSLTree, baseDir
 	return processNodeForPublishing(pl, ctx, tree.Root, treeDir, 0, signer)
 }
 
-// publishTSLToFile writes a TSL to a file, optionally signing it
-func publishTSLToFile(pl *Pipeline, tsl *etsi119612.TSL, filePath string, signer dsig.XMLSigner) error {
-	if tsl == nil {
-		return fmt.Errorf("cannot publish nil TSL")
-	}
+// trustStatusListWrapper is the XML wrapper for serializing a TrustStatusListType
+// with proper namespace declarations and root-level attributes.
+type trustStatusListWrapper struct {
+	XMLName    xml.Name `xml:"TrustServiceStatusList"`
+	Xmlns      string   `xml:"xmlns,attr"`
+	XmlnsDs    string   `xml:"xmlns:ns2,attr"`
+	XmlnsXades string   `xml:"xmlns:ns6,attr"`
+	TSLTag     string   `xml:"TSLTag,attr,omitempty"`
+	ID         string   `xml:"Id,attr,omitempty"`
+	etsi119612.TrustStatusListType
+}
 
-	// Create XML representation with root element and proper namespaces
-	type TrustStatusListWrapper struct {
-		XMLName    xml.Name `xml:"TrustServiceStatusList"`
-		Xmlns      string   `xml:"xmlns,attr"`
-		XmlnsDs    string   `xml:"xmlns:ns2,attr"`
-		XmlnsXades string   `xml:"xmlns:ns6,attr"`
-		TSLTag     string   `xml:"TSLTag,attr,omitempty"`
-		ID         string   `xml:"Id,attr,omitempty"`
-		etsi119612.TrustStatusListType
+// marshalTSLToXML serializes a TSL to XML with proper namespace declarations,
+// root-level attributes, and an XML header.
+func marshalTSLToXML(tsl *etsi119612.TSL) ([]byte, error) {
+	if tsl == nil {
+		return nil, fmt.Errorf("cannot marshal nil TSL")
 	}
-	wrapper := TrustStatusListWrapper{
+	wrapper := trustStatusListWrapper{
 		Xmlns:               "http://uri.etsi.org/02231/v2#",
 		XmlnsDs:             "http://www.w3.org/2000/09/xmldsig#",
 		XmlnsXades:          "http://uri.etsi.org/01903/v1.4.1#",
@@ -76,16 +78,28 @@ func publishTSLToFile(pl *Pipeline, tsl *etsi119612.TSL, filePath string, signer
 		ID:                  tsl.StatusList.IdAttr,
 		TrustStatusListType: tsl.StatusList,
 	}
-	// Clear the embedded attrs to avoid duplication
+	// Clear the embedded attrs to avoid duplication in the output
 	wrapper.TrustStatusListType.TSLTagAttr = ""
 	wrapper.TrustStatusListType.IdAttr = ""
+
 	xmlData, err := xml.MarshalIndent(wrapper, "", "  ")
 	if err != nil {
-		return fmt.Errorf("failed to marshal TSL to XML: %w", err)
+		return nil, fmt.Errorf("failed to marshal TSL to XML: %w", err)
 	}
 
-	// Add XML header
-	xmlData = append([]byte(xml.Header), xmlData...)
+	return append([]byte(xml.Header), xmlData...), nil
+}
+
+// publishTSLToFile writes a TSL to a file, optionally signing it
+func publishTSLToFile(pl *Pipeline, tsl *etsi119612.TSL, filePath string, signer dsig.XMLSigner) error {
+	if tsl == nil {
+		return fmt.Errorf("cannot publish nil TSL")
+	}
+
+	xmlData, err := marshalTSLToXML(tsl)
+	if err != nil {
+		return err
+	}
 
 	// Sign the XML if a signer is provided
 	if signer != nil {

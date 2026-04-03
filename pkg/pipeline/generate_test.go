@@ -213,12 +213,47 @@ sequenceNumber: 1
 
 	// Verify TSLTag and Id attributes are set
 	assert.Equal(t, "http://uri.etsi.org/19612/TSLTag", tsl.StatusList.TSLTagAttr, "TSLTag should be set")
-	assert.Equal(t, "TSL-001", tsl.StatusList.IdAttr, "Id should be set")
+	assert.Equal(t, "TSL-001", tsl.StatusList.IdAttr, "Id should default to TSL-001 for sequenceNumber 1")
 
 	// Verify scheme information
 	assert.NotNil(t, tsl.StatusList.TslSchemeInformation)
 	assert.Equal(t, "http://uri.etsi.org/TrstSvc/TrustedList/TSLType/EUgeneric", tsl.StatusList.TslSchemeInformation.TslTSLType)
 	assert.Equal(t, 1, tsl.StatusList.TslSchemeInformation.TSLVersionIdentifier)
+}
+
+// TestGenerateTSL_CustomId tests that a custom id from scheme.yaml is used
+func TestGenerateTSL_CustomId(t *testing.T) {
+	dir, err := os.MkdirTemp("", "tsl-custom-id-test-*")
+	assert.NoError(t, err)
+	defer os.RemoveAll(dir)
+
+	err = os.MkdirAll(filepath.Join(dir, "providers", "test_provider"), 0755)
+	assert.NoError(t, err)
+
+	schemeYAML := `operatorNames:
+  - language: en
+    value: "Test Operator"
+type: "http://uri.etsi.org/TrstSvc/TrustedList/TSLType/EUgeneric"
+sequenceNumber: 42
+id: "MY-CUSTOM-TSL"
+`
+	err = os.WriteFile(filepath.Join(dir, "scheme.yaml"), []byte(schemeYAML), 0644)
+	assert.NoError(t, err)
+
+	providerYAML := `names:
+  - language: en
+    value: "Test Provider"
+`
+	err = os.WriteFile(filepath.Join(dir, "providers", "test_provider", "provider.yaml"), []byte(providerYAML), 0644)
+	assert.NoError(t, err)
+
+	ctx := NewContext()
+	ctx, err = GenerateTSL(nil, ctx, dir)
+	assert.NoError(t, err)
+
+	tsl, ok := ctx.TSLs.Peek()
+	assert.True(t, ok)
+	assert.Equal(t, "MY-CUSTOM-TSL", tsl.StatusList.IdAttr, "Custom id from scheme.yaml should be used")
 }
 
 // TestPublishTSL_XMLNamespacesAndAttributes verifies the generated XML has correct namespaces and attributes

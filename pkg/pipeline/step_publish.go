@@ -1,7 +1,6 @@
 package pipeline
 
 import (
-	"encoding/xml"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -136,51 +135,9 @@ func PublishTSL(pl *Pipeline, ctx *Context, args ...string) (*Context, error) {
 			// Construct the full file path
 			filePath := filepath.Join(dirPath, filename)
 
-			// Create XML representation with root element and proper namespaces
-			type TrustStatusListWrapper struct {
-				XMLName    xml.Name `xml:"TrustServiceStatusList"`
-				Xmlns      string   `xml:"xmlns,attr"`
-				XmlnsDs    string   `xml:"xmlns:ns2,attr"`
-				XmlnsXades string   `xml:"xmlns:ns6,attr"`
-				TSLTag     string   `xml:"TSLTag,attr,omitempty"`
-				ID         string   `xml:"Id,attr,omitempty"`
-				etsi119612.TrustStatusListType
+			if err := publishTSLToFile(pl, tsl, filePath, signer); err != nil {
+				return ctx, err
 			}
-			wrapper := TrustStatusListWrapper{
-				Xmlns:               "http://uri.etsi.org/02231/v2#",
-				XmlnsDs:             "http://www.w3.org/2000/09/xmldsig#",
-				XmlnsXades:          "http://uri.etsi.org/01903/v1.4.1#",
-				TSLTag:              tsl.StatusList.TSLTagAttr,
-				ID:                  tsl.StatusList.IdAttr,
-				TrustStatusListType: tsl.StatusList,
-			}
-			// Clear the embedded attrs to avoid duplication
-			wrapper.TrustStatusListType.TSLTagAttr = ""
-			wrapper.TrustStatusListType.IdAttr = ""
-			xmlContent, err := xml.MarshalIndent(wrapper, "", "  ")
-			if err != nil {
-				return ctx, fmt.Errorf("failed to marshal TSL to XML: %w", err)
-			}
-
-			// Add XML header
-			xmlContent = append([]byte(xml.Header), xmlContent...)
-
-			if signer != nil {
-				xmlContent, err = signer.Sign(xmlContent)
-				if err != nil {
-					return ctx, fmt.Errorf("failed to sign TSL: %w", err)
-				}
-			}
-
-			// Write the TSL to file
-			if err := os.WriteFile(filePath, xmlContent, 0644); err != nil {
-				return ctx, fmt.Errorf("failed to write TSL to %s: %w", filePath, err)
-			}
-
-			pl.Logger.Info("Published TSL",
-				logging.F("file", filePath),
-				logging.F("signed", signer != nil),
-				logging.F("size", len(xmlContent)))
 		}
 
 		return ctx, nil
@@ -323,47 +280,9 @@ func PublishTSL(pl *Pipeline, ctx *Context, args ...string) (*Context, error) {
 				logging.F("index", i),
 				logging.F("filename", filename))
 
-			// Create XML representation with root element and proper namespaces
-			type TrustStatusListWrapper struct {
-				XMLName    xml.Name `xml:"TrustServiceStatusList"`
-				Xmlns      string   `xml:"xmlns,attr"`
-				XmlnsDs    string   `xml:"xmlns:ns2,attr"`
-				XmlnsXades string   `xml:"xmlns:ns6,attr"`
-				TSLTag     string   `xml:"TSLTag,attr,omitempty"`
-				ID         string   `xml:"Id,attr,omitempty"`
-				etsi119612.TrustStatusListType
-			}
-			wrapper := TrustStatusListWrapper{
-				Xmlns:               "http://uri.etsi.org/02231/v2#",
-				XmlnsDs:             "http://www.w3.org/2000/09/xmldsig#",
-				XmlnsXades:          "http://uri.etsi.org/01903/v1.4.1#",
-				TSLTag:              tsl.StatusList.TSLTagAttr,
-				ID:                  tsl.StatusList.IdAttr,
-				TrustStatusListType: tsl.StatusList,
-			}
-			// Clear the embedded attrs to avoid duplication
-			wrapper.TrustStatusListType.TSLTagAttr = ""
-			wrapper.TrustStatusListType.IdAttr = ""
-			xmlData, err := xml.MarshalIndent(wrapper, "", "  ")
-			if err != nil {
-				return ctx, fmt.Errorf("failed to marshal TSL to XML: %w", err)
-			}
-
-			// Add XML header
-			xmlData = append([]byte(xml.Header), xmlData...)
-
-			// Sign the XML if a signer is provided
-			if signer != nil {
-				xmlData, err = signer.Sign(xmlData)
-				if err != nil {
-					return ctx, fmt.Errorf("failed to sign XML: %w", err)
-				}
-			}
-
-			// Write to file
 			filePath := filepath.Join(dirPath, filename)
-			if err := os.WriteFile(filePath, xmlData, 0644); err != nil {
-				return ctx, fmt.Errorf("failed to write TSL to file %s: %w", filePath, err)
+			if err := publishTSLToFile(pl, tsl, filePath, signer); err != nil {
+				return ctx, err
 			}
 		}
 	}
