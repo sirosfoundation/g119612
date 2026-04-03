@@ -53,14 +53,13 @@ func processTreeForPublishing(pl *Pipeline, ctx *Context, tree *TSLTree, baseDir
 }
 
 // trustStatusListWrapper is the XML wrapper for serializing a TrustStatusListType
-// with proper namespace declarations and root-level attributes.
+// with proper namespace declarations. The TSLTag and Id attributes are carried
+// by the embedded TrustStatusListType and must not be duplicated here.
 type trustStatusListWrapper struct {
 	XMLName    xml.Name `xml:"TrustServiceStatusList"`
 	Xmlns      string   `xml:"xmlns,attr"`
 	XmlnsDs    string   `xml:"xmlns:ns2,attr"`
 	XmlnsXades string   `xml:"xmlns:ns6,attr"`
-	TSLTag     string   `xml:"TSLTag,attr,omitempty"`
-	ID         string   `xml:"Id,attr,omitempty"`
 	etsi119612.TrustStatusListType
 }
 
@@ -74,13 +73,8 @@ func marshalTSLToXML(tsl *etsi119612.TSL) ([]byte, error) {
 		Xmlns:               "http://uri.etsi.org/02231/v2#",
 		XmlnsDs:             "http://www.w3.org/2000/09/xmldsig#",
 		XmlnsXades:          "http://uri.etsi.org/01903/v1.4.1#",
-		TSLTag:              tsl.StatusList.TSLTagAttr,
-		ID:                  tsl.StatusList.IdAttr,
 		TrustStatusListType: tsl.StatusList,
 	}
-	// Clear the embedded attrs to avoid duplication in the output
-	wrapper.TrustStatusListType.TSLTagAttr = ""
-	wrapper.TrustStatusListType.IdAttr = ""
 
 	xmlData, err := xml.MarshalIndent(wrapper, "", "  ")
 	if err != nil {

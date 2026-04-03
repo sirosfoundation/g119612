@@ -109,6 +109,11 @@ func loadSchemeMetadata(rootDir string) (*SchemeMetadata, error) {
 		return nil, fmt.Errorf("scheme metadata must include a type URI")
 	}
 
+	// Default sequenceNumber to 1 when omitted (zero value)
+	if metadata.SequenceNumber <= 0 {
+		metadata.SequenceNumber = 1
+	}
+
 	return &metadata, nil
 }
 
