@@ -13,11 +13,15 @@ jobs:
     - uses: actions/setup-go@v5
       with:
          go-version: ${{ matrix.go-version }}
+    - name: install dependencies
+      run: sudo apt-get update && sudo apt-get install -y softhsm2 opensc xsltproc
     - name: run tests
       run: make test
     - name: generate test coverage
-      run: go test ./... -coverprofile=./cover.out -covermode=atomic -coverpkg=./...
+      if: matrix.go-version == '1.25.x'
+      run: go test -tags softhsm ./... -coverprofile=./cover.out -covermode=atomic -coverpkg=./...
     - name: check test coverage
+      if: matrix.go-version == '1.25.x'
       uses: vladopajic/go-test-coverage@v2
       with:
         debug: true
