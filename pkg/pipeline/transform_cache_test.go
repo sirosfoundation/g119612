@@ -3,6 +3,7 @@ package pipeline
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 )
@@ -117,6 +118,10 @@ func TestXSLTCache(t *testing.T) {
 }
 
 func TestFileXSLTCaching(t *testing.T) {
+	if _, err := exec.LookPath("xsltproc"); err != nil {
+		t.Skip("xsltproc not available, skipping test")
+	}
+
 	// Clear cache before test
 	globalXSLTCache.clear()
 
@@ -171,6 +176,10 @@ func TestFileXSLTCaching(t *testing.T) {
 }
 
 func TestEmbeddedXSLTCaching(t *testing.T) {
+	if _, err := exec.LookPath("xsltproc"); err != nil {
+		t.Skip("xsltproc not available, skipping test")
+	}
+
 	// Clear cache before test
 	globalXSLTCache.clear()
 
