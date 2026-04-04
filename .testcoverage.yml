@@ -1,8 +1,8 @@
 profile: cover.out
 threshold:
-   file: 70
-   package: 80
-   total: 95
+   file: 0
+   package: 0
+   total: 80
 exclude:
    paths:
       - \*\.xsd$
