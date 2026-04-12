@@ -12,7 +12,7 @@ on:
 
 jobs:
   sbom:
-    uses: sirosfoundation/.github/.github/workflows/sbom.yml@main
+    uses: sirosfoundation/.github/.github/workflows/sbom.yml@03160e376dbdeb9f2c904e7a9f45499b2f67e8fa # main
     with:
       artifact-name: g119612
       scan-vulnerabilities: true
