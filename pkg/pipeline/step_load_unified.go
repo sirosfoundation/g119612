@@ -32,27 +32,45 @@ import (
 //   - load-lote: ...
 func Load(pl *Pipeline, ctx *Context, args ...string) (*Context, error) {
 	if len(args) < 1 {
-		return nil, fmt.Errorf("load requires at least 1 argument: URL or file path")
+		return ctx, fmt.Errorf("load requires at least 1 argument: URL or file path")
 	}
 
 	location := args[0]
 
-	// Determine fetch options from context
+	// Try extension-based detection first to avoid unnecessary fetching
+	extFormat := detectFormatByExtension(location)
+	if extFormat != FormatUnknown {
+		if pl != nil && pl.Logger != nil {
+			LogFormat(pl.Logger, location, extFormat)
+		}
+		switch extFormat {
+		case FormatTSL:
+			return LoadTSL(pl, ctx, args...)
+		case FormatLoTE:
+			return LoadLoTE(pl, ctx, args...)
+		}
+	}
+
+	// Extension didn't help — fetch content for probing.
+	// Include Accept headers from context so content-negotiated endpoints
+	// return the right media type.
 	var fetchOpts *FetchRawOptions
 	if ctx.TSLFetchOptions != nil {
 		fetchOpts = &FetchRawOptions{
 			UserAgent: ctx.TSLFetchOptions.UserAgent,
 			Timeout:   ctx.TSLFetchOptions.Timeout,
 		}
+		if len(ctx.TSLFetchOptions.AcceptHeaders) > 0 {
+			fetchOpts.Accept = strings.Join(ctx.TSLFetchOptions.AcceptHeaders, ", ")
+		}
 	}
 
-	// Fetch raw content to detect format
 	data, contentType, err := FetchRaw(location, fetchOpts)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch %s: %w", location, err)
+		return ctx, fmt.Errorf("failed to fetch %s: %w", location, err)
 	}
 
-	// Detect format
+	// Detect format from Content-Type / content probing
 	format := DetectFormat(location, contentType, data)
 	if pl != nil && pl.Logger != nil {
 		LogFormat(pl.Logger, location, format)
@@ -60,15 +78,16 @@ func Load(pl *Pipeline, ctx *Context, args ...string) (*Context, error) {
 
 	switch format {
 	case FormatTSL:
-		// Delegate to TSL loader
+		// Delegate to TSL loader (will re-fetch; unavoidable without
+		// extension hint since LoadTSL handles references internally)
 		return LoadTSL(pl, ctx, args...)
 
 	case FormatLoTE:
-		// Parse LoTE directly from the fetched data
+		// Parse LoTE directly from the already-fetched data
 		return loadLoTEFromData(pl, ctx, location, data, args)
 
 	default:
-		return nil, fmt.Errorf("unable to detect format for %s (not XML or JSON)", location)
+		return ctx, fmt.Errorf("unable to detect format for %s (not XML or JSON)", location)
 	}
 }
 
@@ -82,7 +101,7 @@ func loadLoTEFromData(pl *Pipeline, ctx *Context, location string, data []byte, 
 	if len(args) >= 2 {
 		v, verr := jws.NewCertFileVerifier(args[1])
 		if verr != nil {
-			return nil, fmt.Errorf("failed to create JWS verifier from %s: %w", args[1], verr)
+			return ctx, fmt.Errorf("failed to create JWS verifier from %s: %w", args[1], verr)
 		}
 		verifier = v
 	}
@@ -94,18 +113,18 @@ func loadLoTEFromData(pl *Pipeline, ctx *Context, location string, data []byte, 
 		if verifier != nil {
 			payload, verifyErr := verifier.Verify(string(data))
 			if verifyErr != nil {
-				return nil, fmt.Errorf("failed to verify JWS for %s: %w", location, verifyErr)
+				return ctx, fmt.Errorf("failed to verify JWS for %s: %w", location, verifyErr)
 			}
 			lote, err = etsi119602.ParseLoTE(payload)
 			if err != nil {
-				return nil, fmt.Errorf("failed to parse verified LoTE from %s: %w", location, err)
+				return ctx, fmt.Errorf("failed to parse verified LoTE from %s: %w", location, err)
 			}
 		} else {
 			// Try as JWS compact serialization (unsigned verification just extracts payload)
 			if isJWSCompact(data) {
-				return nil, fmt.Errorf("LoTE at %s appears to be JWS-signed but no verification cert provided", location)
+				return ctx, fmt.Errorf("LoTE at %s appears to be JWS-signed but no verification cert provided", location)
 			}
-			return nil, fmt.Errorf("failed to parse LoTE from %s: %w", location, err)
+			return ctx, fmt.Errorf("failed to parse LoTE from %s: %w", location, err)
 		}
 	}
 

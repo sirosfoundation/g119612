@@ -294,3 +294,119 @@ func TestUnifiedMerge(t *testing.T) {
 		}
 	})
 }
+
+// TestUnifiedErrorPaths verifies that all unified steps return a non-nil context
+// on error, so Pipeline.Process won't panic when accessing ctx.Report.
+func TestUnifiedErrorPaths(t *testing.T) {
+	t.Run("Load missing args", func(t *testing.T) {
+		ctx := &Context{}
+		pl := &Pipeline{}
+		result, err := Load(pl, ctx)
+		if err == nil {
+			t.Fatal("expected error for missing args")
+		}
+		if result == nil {
+			t.Fatal("expected non-nil context on error")
+		}
+	})
+
+	t.Run("Load unknown format", func(t *testing.T) {
+		// Create a file with binary content and no extension
+		tmpDir := t.TempDir()
+		binPath := filepath.Join(tmpDir, "mystery")
+		if err := os.WriteFile(binPath, []byte{0x00, 0x01, 0x02}, 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		ctx := &Context{}
+		pl := &Pipeline{Logger: logging.NewLogger(logging.ErrorLevel)}
+		result, err := Load(pl, ctx, binPath)
+		if err == nil {
+			t.Fatal("expected error for unknown format")
+		}
+		if result == nil {
+			t.Fatal("expected non-nil context on error")
+		}
+	})
+
+	t.Run("Load nonexistent file", func(t *testing.T) {
+		ctx := &Context{}
+		pl := &Pipeline{Logger: logging.NewLogger(logging.ErrorLevel)}
+		result, err := Load(pl, ctx, "/nonexistent/file.xml")
+		if err == nil {
+			t.Fatal("expected error for nonexistent file")
+		}
+		if result == nil {
+			t.Fatal("expected non-nil context on error")
+		}
+	})
+
+	t.Run("Publish missing args", func(t *testing.T) {
+		ctx := &Context{}
+		result, err := Publish(nil, ctx)
+		if err == nil {
+			t.Fatal("expected error for missing args")
+		}
+		if result == nil {
+			t.Fatal("expected non-nil context on error")
+		}
+	})
+
+	t.Run("Publish empty context", func(t *testing.T) {
+		ctx := &Context{}
+		result, err := Publish(nil, ctx, "/tmp/out")
+		if err == nil {
+			t.Fatal("expected error for empty context")
+		}
+		if result == nil {
+			t.Fatal("expected non-nil context on error")
+		}
+	})
+
+	t.Run("Merge empty context", func(t *testing.T) {
+		ctx := &Context{}
+		result, err := Merge(nil, ctx)
+		if err == nil {
+			t.Fatal("expected error for empty context")
+		}
+		if result == nil {
+			t.Fatal("expected non-nil context on error")
+		}
+	})
+
+	t.Run("MergeTSLs empty stack", func(t *testing.T) {
+		ctx := &Context{
+			TSLs: utils.NewStack[*etsi119612.TSL](),
+		}
+		result, err := MergeTSLs(nil, ctx)
+		if err == nil {
+			t.Fatal("expected error for empty TSL stack")
+		}
+		if result == nil {
+			t.Fatal("expected non-nil context on error")
+		}
+	})
+
+	t.Run("Generate missing args", func(t *testing.T) {
+		ctx := &Context{}
+		result, err := Generate(nil, ctx)
+		if err == nil {
+			t.Fatal("expected error for missing args")
+		}
+		if result == nil {
+			t.Fatal("expected non-nil context on error")
+		}
+	})
+
+	t.Run("Generate empty directory", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		ctx := &Context{}
+		result, err := Generate(nil, ctx, tmpDir)
+		if err == nil {
+			t.Fatal("expected error for empty directory")
+		}
+		if result == nil {
+			t.Fatal("expected non-nil context on error")
+		}
+	})
+}

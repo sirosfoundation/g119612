@@ -47,7 +47,7 @@ func Merge(pl *Pipeline, ctx *Context, args ...string) (*Context, error) {
 			}
 			return ctx, nil
 		}
-		return nil, fmt.Errorf("no trust lists in context to merge")
+		return ctx, fmt.Errorf("no trust lists in context to merge")
 	}
 
 	// Merge TSLs if present
@@ -59,7 +59,7 @@ func Merge(pl *Pipeline, ctx *Context, args ...string) (*Context, error) {
 	if hasLoTEs {
 		_, err := MergeLoTEs(pl, ctx, args...)
 		if err != nil {
-			return nil, fmt.Errorf("merge LoTEs: %w", err)
+			return ctx, fmt.Errorf("merge LoTEs: %w", err)
 		}
 	}
 
@@ -125,7 +125,7 @@ func mergeTSLs(pl *Pipeline, ctx *Context) *Context {
 // Exported for explicit use via "merge-tsl:" step.
 func MergeTSLs(pl *Pipeline, ctx *Context, args ...string) (*Context, error) {
 	if ctx.TSLs == nil || ctx.TSLs.Size() == 0 {
-		return nil, fmt.Errorf("no TSLs in context to merge")
+		return ctx, fmt.Errorf("no TSLs in context to merge")
 	}
 	return mergeTSLs(pl, ctx), nil
 }

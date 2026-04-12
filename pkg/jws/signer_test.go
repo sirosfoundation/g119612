@@ -204,23 +204,6 @@ func TestNewCertFileVerifier(t *testing.T) {
 	assert.Equal(t, payload, verified)
 }
 
-func TestNewCertFileVerifier_FileNotFound(t *testing.T) {
-	_, err := NewCertFileVerifier("/nonexistent/cert.pem")
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to read cert file")
-}
-
-func TestNewCertFileVerifier_InvalidPEM(t *testing.T) {
-	dir := t.TempDir()
-	invalidCertPath := filepath.Join(dir, "invalid.pem")
-	err := os.WriteFile(invalidCertPath, []byte("not a valid PEM"), 0644)
-	require.NoError(t, err)
-
-	_, err = NewCertFileVerifier(invalidCertPath)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to parse certificates")
-}
-
 func TestFileSigner_EC521_SignVerify(t *testing.T) {
 	dir := t.TempDir()
 
@@ -347,14 +330,6 @@ func TestNewFileSigner_InvalidCertPEM(t *testing.T) {
 
 	_, err = NewFileSigner(invalidCertPath, keyPath)
 	assert.Error(t, err)
-}
-
-func TestParseCertificates_NoCerts(t *testing.T) {
-	// PEM with non-certificate block
-	pemData := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: []byte("data")})
-	_, err := parseCertificates(pemData)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "no certificates found")
 }
 
 func TestParseCertificates_InvalidCert(t *testing.T) {

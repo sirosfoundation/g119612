@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/sirosfoundation/g119612/pkg/logging"
@@ -28,14 +29,14 @@ import (
 //   - publish-lote: ...  (or the alias: publish-json:)
 func Publish(pl *Pipeline, ctx *Context, args ...string) (*Context, error) {
 	if len(args) < 1 {
-		return nil, fmt.Errorf("publish requires at least 1 argument: output directory")
+		return ctx, fmt.Errorf("publish requires at least 1 argument: output directory")
 	}
 
 	hasTSLs := ctx.TSLs != nil && ctx.TSLs.Size() > 0
 	hasLoTEs := ctx.LoTEs != nil && ctx.LoTEs.Size() > 0
 
 	if !hasTSLs && !hasLoTEs {
-		return nil, fmt.Errorf("no trust lists in context to publish")
+		return ctx, fmt.Errorf("no trust lists in context to publish")
 	}
 
 	var errs []error
@@ -69,7 +70,7 @@ func Publish(pl *Pipeline, ctx *Context, args ...string) (*Context, error) {
 	}
 
 	if len(errs) > 0 {
-		return ctx, fmt.Errorf("publish errors: %v", errs)
+		return ctx, errors.Join(errs...)
 	}
 
 	return ctx, nil

@@ -14,7 +14,7 @@ import (
 // For TSL (ETSI TS 119 612), expects:
 //
 //	root/
-//	  ├── schema.yaml          # TSL scheme metadata
+//	  ├── scheme.yaml          # TSL scheme metadata
 //	  └── providers/           # One subdirectory per trust service provider
 //	      └── provider1/
 //	          ├── provider.yaml
@@ -44,7 +44,7 @@ import (
 //   - generate-lote: ...
 func Generate(pl *Pipeline, ctx *Context, args ...string) (*Context, error) {
 	if len(args) < 1 {
-		return nil, fmt.Errorf("generate requires 1 argument: path to root directory")
+		return ctx, fmt.Errorf("generate requires 1 argument: path to root directory")
 	}
 
 	rootDir := args[0]
@@ -57,7 +57,7 @@ func Generate(pl *Pipeline, ctx *Context, args ...string) (*Context, error) {
 	hasEntities := dirExists(entitiesDir)
 
 	if hasProviders && hasEntities {
-		return nil, fmt.Errorf("ambiguous directory structure in %s: found both 'providers/' (TSL) and 'entities/' (LoTE)", rootDir)
+		return ctx, fmt.Errorf("ambiguous directory structure in %s: found both 'providers/' (TSL) and 'entities/' (LoTE)", rootDir)
 	}
 
 	if !hasProviders && !hasEntities {
@@ -65,7 +65,7 @@ func Generate(pl *Pipeline, ctx *Context, args ...string) (*Context, error) {
 		if fileExists(filepath.Join(rootDir, "scheme.yaml")) {
 			return GenerateLoTE(pl, ctx, args...)
 		}
-		return nil, fmt.Errorf("cannot detect format: %s has neither 'providers/' nor 'entities/' directory", rootDir)
+		return ctx, fmt.Errorf("cannot detect format: %s has neither 'providers/' nor 'entities/' directory", rootDir)
 	}
 
 	if hasEntities {
