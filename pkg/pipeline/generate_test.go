@@ -221,6 +221,61 @@ sequenceNumber: 1
 	assert.Equal(t, 1, tsl.StatusList.TslSchemeInformation.TSLVersionIdentifier)
 }
 
+// TestGenerateTSL_TradeNameAndInfoURI tests that tradeName and informationURI from provider.yaml
+// are populated in the generated TSL.
+func TestGenerateTSL_TradeNameAndInfoURI(t *testing.T) {
+	dir, err := os.MkdirTemp("", "tsl-tradename-test-*")
+	assert.NoError(t, err)
+	defer os.RemoveAll(dir)
+
+	err = os.MkdirAll(filepath.Join(dir, "providers", "test_provider"), 0755)
+	assert.NoError(t, err)
+
+	schemeYAML := `operatorNames:
+  - language: en
+    value: "Test Operator"
+type: "http://uri.etsi.org/TrstSvc/TrustedList/TSLType/EUgeneric"
+sequenceNumber: 1
+`
+	err = os.WriteFile(filepath.Join(dir, "scheme.yaml"), []byte(schemeYAML), 0644)
+	assert.NoError(t, err)
+
+	providerYAML := `names:
+  - language: en
+    value: "Test Provider Inc"
+tradeName:
+  - language: en
+    value: "TestCorp"
+  - language: sv
+    value: "TestFöretag"
+informationURI:
+  - language: en
+    value: "https://example.com/info"
+`
+	err = os.WriteFile(filepath.Join(dir, "providers", "test_provider", "provider.yaml"), []byte(providerYAML), 0644)
+	assert.NoError(t, err)
+
+	ctx := NewContext()
+	ctx, err = GenerateTSL(nil, ctx, dir)
+	assert.NoError(t, err)
+
+	tsl, ok := ctx.TSLs.Peek()
+	assert.True(t, ok)
+
+	providers := tsl.StatusList.TslTrustServiceProviderList.TslTrustServiceProvider
+	assert.Len(t, providers, 1)
+
+	info := providers[0].TslTSPInformation
+	assert.NotNil(t, info.TSPTradeName, "TSPTradeName should be set")
+	assert.Len(t, info.TSPTradeName.Name, 2, "Should have 2 trade names")
+	assert.Equal(t, "TestCorp", string(*info.TSPTradeName.Name[0].NonEmptyNormalizedString))
+	assert.Equal(t, "TestFöretag", string(*info.TSPTradeName.Name[1].NonEmptyNormalizedString))
+
+	assert.NotNil(t, info.TSPInformationURI, "TSPInformationURI should be set")
+	assert.Len(t, info.TSPInformationURI.URI, 1, "Should have 1 information URI")
+	assert.Equal(t, "https://example.com/info", info.TSPInformationURI.URI[0].Value)
+}
+
 // TestGenerateTSL_CustomId tests that a custom id from scheme.yaml is used
 func TestGenerateTSL_CustomId(t *testing.T) {
 	dir, err := os.MkdirTemp("", "tsl-custom-id-test-*")
