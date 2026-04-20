@@ -450,6 +450,43 @@ func GenerateTSL(pl *Pipeline, ctx *Context, args ...string) (*Context, error) {
 			},
 		}
 
+		// Add provider trade name if present
+		if len(providerMetadata.TradeName) > 0 {
+			tradeNames := make([]*etsi119612.MultiLangNormStringType, len(providerMetadata.TradeName))
+			for i, name := range providerMetadata.TradeName {
+				tradeNames[i] = &etsi119612.MultiLangNormStringType{
+					XmlLangAttr: func() *etsi119612.Lang {
+						l := etsi119612.Lang(name.Language)
+						return &l
+					}(),
+					NonEmptyNormalizedString: func() *etsi119612.NonEmptyNormalizedString {
+						s := etsi119612.NonEmptyNormalizedString(name.Value)
+						return &s
+					}(),
+				}
+			}
+			provider.TslTSPInformation.TSPTradeName = &etsi119612.InternationalNamesType{
+				Name: tradeNames,
+			}
+		}
+
+		// Add provider information URI if present
+		if len(providerMetadata.InformationURI) > 0 {
+			uris := make([]*etsi119612.NonEmptyMultiLangURIType, len(providerMetadata.InformationURI))
+			for i, uri := range providerMetadata.InformationURI {
+				uris[i] = &etsi119612.NonEmptyMultiLangURIType{
+					XmlLangAttr: func() *etsi119612.Lang {
+						l := etsi119612.Lang(uri.Language)
+						return &l
+					}(),
+					Value: uri.Value,
+				}
+			}
+			provider.TslTSPInformation.TSPInformationURI = &etsi119612.NonEmptyMultiLangURIListType{
+				URI: uris,
+			}
+		}
+
 		// Add provider address if present
 		if providerMetadata.Address != nil {
 			provider.TslTSPInformation.TSPAddress = &etsi119612.AddressType{

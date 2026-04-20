@@ -174,6 +174,64 @@ ctx.CryptoExt = ext
 | `set-fetch-options` | Configure HTTP client options |
 | `echo` | No-op placeholder step |
 
+### TSL Generation Directory Structure
+
+The `generate` step creates a TSL from a directory of YAML metadata and certificate files:
+
+```
+tsl-source/
+├── scheme.yaml              # TSL scheme metadata
+└── providers/               # One subdirectory per trust service provider
+    └── my-provider/
+        ├── provider.yaml    # Provider metadata
+        ├── cert1.pem        # X.509 certificate (DER-encoded bytes; despite the example extension, not PEM text)
+        └── cert1.yaml       # Service metadata for cert1.pem
+```
+
+**scheme.yaml:**
+```yaml
+operatorNames:
+  - language: en
+    value: "Trust List Operator"
+type: "http://uri.etsi.org/TrstSvc/TrustedList/TSLType/EUgeneric"
+sequenceNumber: 1    # Optional, defaults to 1
+id: "MY-TSL-001"     # Optional, defaults to "TSL-NNN"
+```
+
+**provider.yaml:**
+```yaml
+names:
+  - language: en
+    value: "Example Trust Service Provider"
+address:                      # Optional
+  postal:
+    streetAddress: "Example Street 123"
+    locality: "Example City"
+    postalCode: "12345"
+    countryName: "SE"
+  electronic:
+    - "https://example.com"
+    - "mailto:contact@example.com"
+tradeName:                    # Optional
+  - language: en
+    value: "Example Corp"
+informationURI:               # Required
+  - language: en
+    value: "https://example.com/info"
+```
+
+**cert.yaml** (must match a `.pem` file by base name, e.g. `cert1.yaml` ↔ `cert1.pem`):
+```yaml
+serviceNames:
+  - language: en
+    value: "Example Signing Service"
+serviceType: "http://uri.etsi.org/TrstSvc/Svctype/CA/QC"
+status: "http://uri.etsi.org/TrstSvc/TrustedList/Svcstatus/granted"
+serviceDigitalId:             # Optional additional digital IDs
+  digitalIds:
+    - "base64-encoded-cert..."
+```
+
 #### LoTE Steps (ETSI TS 119 602)
 
 | Step | Description |
@@ -246,10 +304,11 @@ sequenceNumber: 1
 **entity.yaml:**
 ```yaml
 entityId: "https://issuer.example.com"
+entityType: "http://example.com/entity-type"  # Optional entity type URI
 names:
   - language: en
     value: "Example Credential Issuer"
-status: "http://uri.etsi.org/TrstSvc/TrustedList/Svcstatus/granted"
+status: "http://uri.etsi.org/TrstSvc/TrustedList/Svcstatus/granted"  # Defaults to "granted" if omitted
 services:
   - serviceType: "http://uri.etsi.org/TrstSvc/Svctype/CA/QC"
     serviceNames:
