@@ -91,10 +91,12 @@ func SignXMLWithXAdES(xmlData []byte, signer crypto.Signer, cert *x509.Certifica
 }
 
 // generateSignatureID generates a deterministic-format signature ID.
-func generateSignatureID() string {
+func generateSignatureID() (string, error) {
 	b := make([]byte, 16)
-	_, _ = rand.Read(b)
-	return fmt.Sprintf("%x", b)
+	if _, err := rand.Read(b); err != nil {
+		return "", fmt.Errorf("generate signature ID: %w", err)
+	}
+	return fmt.Sprintf("%x", b), nil
 }
 
 // buildXAdESObject constructs the ds:Object element containing xades:QualifyingProperties.
