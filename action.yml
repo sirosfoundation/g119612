@@ -1,0 +1,65 @@
+name: 'Setup tsl-tool'
+description: 'Download and install a pre-built tsl-tool binary from a GitHub release'
+inputs:
+  version:
+    description: 'tsl-tool version to install (e.g. v1.0.0). Use "latest" for the most recent release.'
+    required: false
+    default: 'latest'
+  token:
+    description: 'GitHub token for downloading release assets (defaults to GITHUB_TOKEN)'
+    required: false
+    default: ${{ github.token }}
+runs:
+  using: 'composite'
+  steps:
+    - name: Determine version
+      id: version
+      shell: bash
+      run: |
+        VERSION="${{ inputs.version }}"
+        if [ "$VERSION" = "latest" ]; then
+          VERSION=$(gh release view --repo sirosfoundation/g119612 --json tagName -q .tagName)
+        fi
+        echo "tag=$VERSION" >> "$GITHUB_OUTPUT"
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+
+    - name: Determine platform
+      id: platform
+      shell: bash
+      run: |
+        OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+        ARCH=$(uname -m)
+        case "$ARCH" in
+          x86_64)  ARCH="amd64" ;;
+          aarch64) ARCH="arm64" ;;
+          arm64)   ARCH="arm64" ;;
+        esac
+        echo "os=$OS" >> "$GITHUB_OUTPUT"
+        echo "arch=$ARCH" >> "$GITHUB_OUTPUT"
+
+    - name: Download tsl-tool
+      shell: bash
+      run: |
+        TAG="${{ steps.version.outputs.tag }}"
+        OS="${{ steps.platform.outputs.os }}"
+        ARCH="${{ steps.platform.outputs.arch }}"
+        ASSET="tsl-tool-${OS}-${ARCH}"
+
+        INSTALL_DIR="${HOME}/.local/bin"
+        mkdir -p "$INSTALL_DIR"
+
+        gh release download "$TAG" \
+          --repo sirosfoundation/g119612 \
+          --pattern "$ASSET" \
+          --dir "$INSTALL_DIR"
+
+        mv "$INSTALL_DIR/$ASSET" "$INSTALL_DIR/tsl-tool"
+        chmod +x "$INSTALL_DIR/tsl-tool"
+        echo "$INSTALL_DIR" >> "$GITHUB_PATH"
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+
+    - name: Verify installation
+      shell: bash
+      run: tsl-tool --version
