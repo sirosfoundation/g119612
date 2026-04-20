@@ -56,6 +56,9 @@ func PublishTSL(pl *Pipeline, ctx *Context, args ...string) (*Context, error) {
 	}
 	args = filteredArgs
 
+	if len(args) < 1 {
+		return ctx, fmt.Errorf("missing argument: directory path")
+	}
 	dirPath := args[0]
 
 	// Validate output directory before processing
