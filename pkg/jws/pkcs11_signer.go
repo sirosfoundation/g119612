@@ -4,8 +4,12 @@ import (
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/elliptic"
+	"crypto/rand"
 	"crypto/rsa"
+	"crypto/x509"
+	"encoding/asn1"
 	"fmt"
+	"math/big"
 
 	"github.com/ThalesGroup/crypto11"
 	jose "github.com/go-jose/go-jose/v4"
@@ -80,7 +84,14 @@ func (s *PKCS11Signer) Sign(payload []byte) (string, error) {
 		return "", err
 	}
 
-	signingKey := jose.SigningKey{Algorithm: alg, Key: privateKey}
+	// Wrap crypto11.Signer as jose.OpaqueSigner so go-jose can use it
+	opaque := &pkcs11OpaqueSigner{
+		signer: privateKey,
+		cert:   cert,
+		alg:    alg,
+	}
+
+	signingKey := jose.SigningKey{Algorithm: alg, Key: opaque}
 	opts := &jose.SignerOptions{}
 	opts.WithHeader("x5c", [][]byte{cert.Raw})
 
@@ -98,6 +109,111 @@ func (s *PKCS11Signer) Sign(payload []byte) (string, error) {
 		return "", fmt.Errorf("JWS signing failed: %w", err)
 	}
 	return obj.CompactSerialize()
+}
+
+// pkcs11OpaqueSigner wraps a crypto11.Signer to implement jose.OpaqueSigner.
+// go-jose does not accept crypto.Signer directly in its type switch;
+// it requires either a concrete key type or an OpaqueSigner.
+type pkcs11OpaqueSigner struct {
+	signer crypto.Signer
+	cert   *x509.Certificate
+	alg    jose.SignatureAlgorithm
+}
+
+func (o *pkcs11OpaqueSigner) Public() *jose.JSONWebKey {
+	return &jose.JSONWebKey{Key: o.signer.Public()}
+}
+
+func (o *pkcs11OpaqueSigner) Algs() []jose.SignatureAlgorithm {
+	return []jose.SignatureAlgorithm{o.alg}
+}
+
+func (o *pkcs11OpaqueSigner) SignPayload(payload []byte, alg jose.SignatureAlgorithm) ([]byte, error) {
+	// Determine hash from algorithm
+	var hash crypto.Hash
+	switch alg {
+	case jose.ES256:
+		hash = crypto.SHA256
+	case jose.ES384:
+		hash = crypto.SHA384
+	case jose.ES512:
+		hash = crypto.SHA512
+	case jose.RS256, jose.PS256:
+		hash = crypto.SHA256
+	case jose.RS384, jose.PS384:
+		hash = crypto.SHA384
+	case jose.RS512, jose.PS512:
+		hash = crypto.SHA512
+	default:
+		return nil, fmt.Errorf("unsupported algorithm: %s", alg)
+	}
+
+	hasher := hash.New()
+	_, _ = hasher.Write(payload)
+	digest := hasher.Sum(nil)
+
+	var opts crypto.SignerOpts = hash
+	// RSA-PSS requires special options
+	switch alg {
+	case jose.PS256, jose.PS384, jose.PS512:
+		opts = &rsa.PSSOptions{SaltLength: rsa.PSSSaltLengthEqualsHash, Hash: hash}
+	}
+
+	sig, err := o.signer.Sign(rand.Reader, digest, opts)
+	if err != nil {
+		return nil, fmt.Errorf("PKCS#11 signing failed: %w", err)
+	}
+
+	// For ECDSA, crypto.Signer returns ASN.1 DER-encoded signature,
+	// but JWS requires raw R||S format
+	switch alg {
+	case jose.ES256, jose.ES384, jose.ES512:
+		return convertECDSASignature(sig, alg)
+	}
+
+	return sig, nil
+}
+
+// convertECDSASignature converts ASN.1 DER ECDSA signature to JWS R||S format.
+func convertECDSASignature(derSig []byte, alg jose.SignatureAlgorithm) ([]byte, error) {
+	var keySize int
+	switch alg {
+	case jose.ES256:
+		keySize = 32
+	case jose.ES384:
+		keySize = 48
+	case jose.ES512:
+		keySize = 66
+	default:
+		return nil, fmt.Errorf("unsupported EC algorithm: %s", alg)
+	}
+
+	// Parse ASN.1 signature
+	r, s, err := parseECDSASignature(derSig)
+	if err != nil {
+		return nil, err
+	}
+
+	// Pad R and S to key size
+	rBytes := r.Bytes()
+	sBytes := s.Bytes()
+
+	out := make([]byte, 2*keySize)
+	copy(out[keySize-len(rBytes):keySize], rBytes)
+	copy(out[2*keySize-len(sBytes):], sBytes)
+
+	return out, nil
+}
+
+// parseECDSASignature parses an ASN.1 DER-encoded ECDSA signature into R and S.
+func parseECDSASignature(derSig []byte) (*big.Int, *big.Int, error) {
+	var sig struct {
+		R, S *big.Int
+	}
+	if _, err := asn1.Unmarshal(derSig, &sig); err != nil {
+		return nil, nil, fmt.Errorf("failed to parse ECDSA signature: %w", err)
+	}
+	return sig.R, sig.S, nil
 }
 
 // Close releases any PKCS#11 resources.
