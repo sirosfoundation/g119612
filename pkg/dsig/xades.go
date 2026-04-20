@@ -6,7 +6,9 @@ package dsig
 
 import (
 	"crypto"
+	"crypto/ecdsa"
 	"crypto/rand"
+	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
@@ -18,12 +20,13 @@ import (
 )
 
 const (
-	xadesNamespace      = "http://uri.etsi.org/01903/v1.3.2#"
-	dsigNamespace       = "http://www.w3.org/2000/09/xmldsig#"
-	excC14NAlgorithm    = "http://www.w3.org/2001/10/xml-exc-c14n#"
-	sha256DigestAlg     = "http://www.w3.org/2001/04/xmlenc#sha256"
-	envelopedSigAlg     = "http://www.w3.org/2000/09/xmldsig#enveloped-signature"
-	rsaSHA256SigAlg     = "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256"
+	xadesNamespace       = "http://uri.etsi.org/01903/v1.3.2#"
+	dsigNamespace        = "http://www.w3.org/2000/09/xmldsig#"
+	excC14NAlgorithm     = "http://www.w3.org/2001/10/xml-exc-c14n#"
+	sha256DigestAlg      = "http://www.w3.org/2001/04/xmlenc#sha256"
+	envelopedSigAlg      = "http://www.w3.org/2000/09/xmldsig#enveloped-signature"
+	rsaSHA256SigAlg      = "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256"
+	ecdsaSHA256SigAlg    = "http://www.w3.org/2001/04/xmldsig-more#ecdsa-sha256"
 	signedPropertiesType = "http://uri.etsi.org/01903#SignedProperties"
 )
 
@@ -45,8 +48,17 @@ func SignXMLWithXAdES(xmlData []byte, signer crypto.Signer, cert *x509.Certifica
 
 	root := doc.Root()
 
+	// Determine signature algorithm from key type
+	sigAlgURI, err := signatureAlgorithmURI(cert.PublicKey)
+	if err != nil {
+		return nil, err
+	}
+
 	// Generate a unique signature ID
-	sigID := generateSignatureID()
+	sigID, err := generateSignatureID()
+	if err != nil {
+		return nil, err
+	}
 	signedPropsID := "xades-" + sigID
 
 	// Build the QualifyingProperties / SignedProperties element
@@ -65,7 +77,7 @@ func SignXMLWithXAdES(xmlData []byte, signer crypto.Signer, cert *x509.Certifica
 	}
 
 	// Build SignedInfo with two references
-	signedInfo := buildSignedInfo(docDigest, signedPropsDigest, signedPropsID)
+	signedInfo := buildSignedInfo(docDigest, signedPropsDigest, signedPropsID, sigID, sigAlgURI)
 
 	// Canonicalize SignedInfo and sign it
 	signedInfoDigest, err := canonicalizeAndHash(signedInfo)
@@ -146,8 +158,20 @@ func buildXAdESObject(sigID, signedPropsID string, cert *x509.Certificate) *etre
 	return object
 }
 
+// signatureAlgorithmURI returns the XML-DSIG SignatureMethod URI for the given public key.
+func signatureAlgorithmURI(pub crypto.PublicKey) (string, error) {
+	switch pub.(type) {
+	case *rsa.PublicKey:
+		return rsaSHA256SigAlg, nil
+	case *ecdsa.PublicKey:
+		return ecdsaSHA256SigAlg, nil
+	default:
+		return "", fmt.Errorf("unsupported key type %T for XAdES signing", pub)
+	}
+}
+
 // buildSignedInfo constructs the ds:SignedInfo element with two references.
-func buildSignedInfo(docDigest, signedPropsDigest []byte, signedPropsID string) *etree.Element {
+func buildSignedInfo(docDigest, signedPropsDigest []byte, signedPropsID, sigID, sigAlgURI string) *etree.Element {
 	signedInfo := etree.NewElement("ds:SignedInfo")
 	signedInfo.CreateAttr("xmlns:ds", dsigNamespace)
 
@@ -157,10 +181,11 @@ func buildSignedInfo(docDigest, signedPropsDigest []byte, signedPropsID string) 
 
 	// SignatureMethod
 	sigMethod := signedInfo.CreateElement("ds:SignatureMethod")
-	sigMethod.CreateAttr("Algorithm", rsaSHA256SigAlg)
+	sigMethod.CreateAttr("Algorithm", sigAlgURI)
 
 	// Reference 1: the document
 	ref1 := signedInfo.CreateElement("ds:Reference")
+	ref1.CreateAttr("Id", "r-doc-"+sigID)
 	ref1.CreateAttr("URI", "")
 	transforms := ref1.CreateElement("ds:Transforms")
 	t1 := transforms.CreateElement("ds:Transform")

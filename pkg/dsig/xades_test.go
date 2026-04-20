@@ -73,10 +73,6 @@ func setupTestCert(t *testing.T) (string, string) {
 }
 
 func TestFileSigner_XAdES_QualifyingProperties(t *testing.T) {
-	if os.Getenv("CI") == "true" {
-		t.Skip("Skipping XAdES test in CI environment")
-	}
-
 	certPath, keyPath := setupTestCert(t)
 
 	signer := NewFileSigner(certPath, keyPath)
@@ -185,10 +181,6 @@ func TestFileSigner_XAdES_QualifyingProperties(t *testing.T) {
 }
 
 func TestFileSigner_XAdES_TwoReferences(t *testing.T) {
-	if os.Getenv("CI") == "true" {
-		t.Skip("Skipping XAdES test in CI environment")
-	}
-
 	certPath, keyPath := setupTestCert(t)
 
 	signer := NewFileSigner(certPath, keyPath)
@@ -244,10 +236,6 @@ func TestFileSigner_XAdES_TwoReferences(t *testing.T) {
 }
 
 func TestFileSigner_XAdES_Disabled(t *testing.T) {
-	if os.Getenv("CI") == "true" {
-		t.Skip("Skipping XAdES test in CI environment")
-	}
-
 	certPath, keyPath := setupTestCert(t)
 
 	signer := NewFileSigner(certPath, keyPath)
@@ -282,10 +270,6 @@ func TestFileSigner_XAdES_Disabled(t *testing.T) {
 }
 
 func TestFileSigner_XAdES_CertDigestMatchesCert(t *testing.T) {
-	if os.Getenv("CI") == "true" {
-		t.Skip("Skipping XAdES test in CI environment")
-	}
-
 	certPath, keyPath := setupTestCert(t)
 
 	// Load the certificate to compute expected digest
