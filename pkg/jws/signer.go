@@ -2,6 +2,10 @@
 //
 // This complements the XML-DSIG signing in pkg/dsig by providing JWS-based
 // integrity protection as required by ETSI TS 119 602.
+//
+// By default, signatures are produced in JAdES-B-B profile (ETSI TS 119 182-1),
+// which adds sigT (signing time) and x5t#S256 (certificate thumbprint) headers
+// to the standard JWS protected header.
 package jws
 
 import (
@@ -9,10 +13,13 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/pem"
 	"fmt"
 	"os"
+	"time"
 
 	jose "github.com/go-jose/go-jose/v4"
 )
@@ -22,17 +29,27 @@ type JSONSigner interface {
 	Sign(payload []byte) (string, error)
 }
 
+// JAdESConfigurable allows configuring JAdES compliance on a signer.
+type JAdESConfigurable interface {
+	SetJAdES(enabled bool)
+}
+
 // JSONVerifier verifies JWS compact serializations.
 type JSONVerifier interface {
 	Verify(compact string) ([]byte, error)
 }
 
 // FileSigner signs using a PEM-encoded private key and certificate file.
+// By default it produces JAdES-B-B compliant signatures.
 type FileSigner struct {
-	signer jose.Signer
+	key   crypto.PrivateKey
+	certs []*x509.Certificate
+	alg   jose.SignatureAlgorithm
+	jades bool // JAdES-B-B compliance (default: true)
 }
 
 // NewFileSigner creates a JWS signer from PEM certificate and private key files.
+// JAdES-B-B compliance is enabled by default.
 func NewFileSigner(certFile, keyFile string) (*FileSigner, error) {
 	keyPEM, err := os.ReadFile(keyFile)
 	if err != nil {
@@ -59,25 +76,49 @@ func NewFileSigner(certFile, keyFile string) (*FileSigner, error) {
 		return nil, err
 	}
 
-	signingKey := jose.SigningKey{Algorithm: alg, Key: key}
-	opts := &jose.SignerOptions{}
-	opts.WithHeader("x5c", certsToX5C(certs))
+	return &FileSigner{
+		key:   key,
+		certs: certs,
+		alg:   alg,
+		jades: true,
+	}, nil
+}
 
-	signer, err := jose.NewSigner(signingKey, opts)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create JWS signer: %w", err)
-	}
-
-	return &FileSigner{signer: signer}, nil
+// SetJAdES enables or disables JAdES-B-B compliant headers (sigT, x5t#S256).
+func (s *FileSigner) SetJAdES(enabled bool) {
+	s.jades = enabled
 }
 
 // Sign produces a compact JWS serialization of the payload.
 func (s *FileSigner) Sign(payload []byte) (string, error) {
-	obj, err := s.signer.Sign(payload)
+	signingKey := jose.SigningKey{Algorithm: s.alg, Key: s.key}
+	opts := &jose.SignerOptions{}
+	opts.WithHeader("x5c", certsToX5C(s.certs))
+
+	if s.jades {
+		addJAdESHeaders(opts, s.certs[0])
+	}
+
+	signer, err := jose.NewSigner(signingKey, opts)
+	if err != nil {
+		return "", fmt.Errorf("failed to create JWS signer: %w", err)
+	}
+
+	obj, err := signer.Sign(payload)
 	if err != nil {
 		return "", fmt.Errorf("JWS signing failed: %w", err)
 	}
 	return obj.CompactSerialize()
+}
+
+// addJAdESHeaders adds ETSI TS 119 182-1 JAdES-B-B required headers to the signer options.
+func addJAdESHeaders(opts *jose.SignerOptions, cert *x509.Certificate) {
+	// sigT: signing time as RFC 3339 UTC (ETSI TS 119 182-1 §5.2.8)
+	opts.WithHeader("sigT", time.Now().UTC().Format(time.RFC3339))
+
+	// x5t#S256: SHA-256 thumbprint of the signing certificate (ETSI TS 119 182-1 §5.2.2)
+	thumbprint := sha256.Sum256(cert.Raw)
+	opts.WithHeader("x5t#S256", base64.RawURLEncoding.EncodeToString(thumbprint[:]))
 }
 
 // KeyVerifier verifies JWS using a set of trusted public keys.

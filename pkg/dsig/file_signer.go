@@ -14,16 +14,20 @@ import (
 // FileSigner implements XMLSigner using certificate and private key files.
 // It uses file-based certificates and keys for signing XML documents.
 // The certificate and key files should be in PEM format.
+// By default, it produces XAdES-B-B compliant signatures.
 type FileSigner struct {
 	// CertFile is the path to the X.509 certificate file in PEM format
 	CertFile string
 
 	// KeyFile is the path to the private key file in PEM format (PKCS#1 or PKCS#8)
 	KeyFile string
+
+	// xades controls whether XAdES-B-B QualifyingProperties are added (default: true)
+	xades bool
 }
 
 // NewFileSigner creates a new FileSigner from certificate and key file paths.
-// This is a convenience constructor for the FileSigner struct.
+// XAdES-B-B compliance is enabled by default.
 //
 // Parameters:
 //   - certFile: Path to the X.509 certificate file in PEM format
@@ -35,7 +39,13 @@ func NewFileSigner(certFile, keyFile string) *FileSigner {
 	return &FileSigner{
 		CertFile: certFile,
 		KeyFile:  keyFile,
+		xades:    true,
 	}
+}
+
+// SetXAdES enables or disables XAdES-B-B compliant signatures.
+func (fs *FileSigner) SetXAdES(enabled bool) {
+	fs.xades = enabled
 }
 
 // Sign implements XMLSigner.Sign using certificate and key files.
@@ -99,7 +109,12 @@ func (fs *FileSigner) Sign(xmlData []byte) ([]byte, error) {
 		}
 	}
 
-	// Create a key store from the loaded certificate and private key
+	// Use XAdES-B-B signing if enabled
+	if fs.xades {
+		return SignXMLWithXAdES(xmlData, privateKey, cert)
+	}
+
+	// Fall back to plain XML-DSIG
 	keyStore := &fileKeyStore{
 		cert: cert,
 		key:  privateKey,

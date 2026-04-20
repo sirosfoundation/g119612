@@ -37,11 +37,24 @@ import (
 //
 // Example usage in pipeline configuration:
 //   - publish:/path/to/output/dir  # Publish all TSLs to the specified directory
-//   - publish:["/path/to/output/dir", "/path/to/cert.pem", "/path/to/key.pem"]  # With XML-DSIG signatures
+//   - publish:["/path/to/output/dir", "/path/to/cert.pem", "/path/to/key.pem"]  # With XAdES signatures (default)
+//   - publish:["/path/to/output/dir", "/path/to/cert.pem", "/path/to/key.pem", "xades:false"]  # Plain XML-DSIG
 func PublishTSL(pl *Pipeline, ctx *Context, args ...string) (*Context, error) {
 	if len(args) < 1 {
 		return ctx, fmt.Errorf("missing argument: directory path")
 	}
+
+	// Check for xades:false in any argument position and filter it out
+	xadesEnabled := true
+	var filteredArgs []string
+	for _, arg := range args {
+		if arg == "xades:false" {
+			xadesEnabled = false
+		} else {
+			filteredArgs = append(filteredArgs, arg)
+		}
+	}
+	args = filteredArgs
 
 	dirPath := args[0]
 
@@ -62,7 +75,9 @@ func PublishTSL(pl *Pipeline, ctx *Context, args ...string) (*Context, error) {
 		if err := validation.ValidateFilePath(args[2]); err != nil {
 			return ctx, fmt.Errorf("invalid key path: %w", err)
 		}
-		signer = dsig.NewFileSigner(args[1], args[2])
+		fs := dsig.NewFileSigner(args[1], args[2])
+		fs.SetXAdES(xadesEnabled)
+		signer = fs
 	}
 
 	// Check if this is a PKCS#11 signer configuration
@@ -86,6 +101,7 @@ func PublishTSL(pl *Pipeline, ctx *Context, args ...string) (*Context, error) {
 			}
 			pkcs11Signer := dsig.NewPKCS11Signer(pkcs11Config, keyLabel, certLabel)
 			pkcs11Signer.SetKeyID(keyID)
+			pkcs11Signer.SetXAdES(xadesEnabled)
 			signer = pkcs11Signer
 		}
 	}
