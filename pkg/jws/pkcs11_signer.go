@@ -60,11 +60,19 @@ func (s *PKCS11Signer) Sign(payload []byte) (string, error) {
 		return "", fmt.Errorf("failed to find private key with label %q and ID %q: %w",
 			s.keyLabel, s.keyID, err)
 	}
+	if privateKey == nil {
+		return "", fmt.Errorf("no private key found with label %q and ID %q",
+			s.keyLabel, s.keyID)
+	}
 
 	cert, err := s.context.FindCertificate(idBytes, []byte(s.certLabel), nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to find certificate with label %q and ID %q: %w",
 			s.certLabel, s.keyID, err)
+	}
+	if cert == nil {
+		return "", fmt.Errorf("no certificate found with label %q and ID %q",
+			s.certLabel, s.keyID)
 	}
 
 	alg, err := algorithmForPublicKey(cert.PublicKey)
