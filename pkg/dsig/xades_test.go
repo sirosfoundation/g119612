@@ -1,40 +1,74 @@
 package dsig
 
 import (
+	"crypto/rand"
+	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/base64"
 	"encoding/pem"
+	"math/big"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/beevik/etree"
 )
 
 // setupTestCert generates a self-signed certificate and key for testing.
-// Returns cert path, key path, and cleanup function.
+// Returns cert path and key path.
 func setupTestCert(t *testing.T) (string, string) {
 	t.Helper()
-
-	if _, err := exec.LookPath("openssl"); err != nil {
-		t.Skip("Skipping test: openssl not available")
-	}
 
 	tmpDir := t.TempDir()
 	certPath := filepath.Join(tmpDir, "cert.pem")
 	keyPath := filepath.Join(tmpDir, "key.pem")
 
-	cmd := exec.Command("openssl", "req", "-x509", "-newkey", "rsa:2048",
-		"-keyout", keyPath, "-out", certPath, "-days", "1", "-nodes",
-		"-subj", "/CN=XAdES Test Certificate/O=Test Org")
-	output, err := cmd.CombinedOutput()
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
-		t.Skipf("Failed to generate test certificate: %v, output: %s", err, output)
+		t.Fatalf("failed to generate test private key: %v", err)
 	}
 
+	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
+	serialNumber, err := rand.Int(rand.Reader, serialNumberLimit)
+	if err != nil {
+		t.Fatalf("failed to generate certificate serial number: %v", err)
+	}
+
+	notBefore := time.Now().Add(-time.Hour)
+	notAfter := notBefore.Add(24 * time.Hour)
+
+	template := &x509.Certificate{
+		SerialNumber: serialNumber,
+		Subject: pkix.Name{
+			CommonName:   "XAdES Test Certificate",
+			Organization: []string{"Test Org"},
+		},
+		NotBefore:             notBefore,
+		NotAfter:              notAfter,
+		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment | x509.KeyUsageCertSign,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
+		BasicConstraintsValid: true,
+		IsCA:                  true,
+	}
+
+	derBytes, err := x509.CreateCertificate(rand.Reader, template, template, &privateKey.PublicKey, privateKey)
+	if err != nil {
+		t.Fatalf("failed to create test certificate: %v", err)
+	}
+
+	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: derBytes})
+	if err := os.WriteFile(certPath, certPEM, 0644); err != nil {
+		t.Fatalf("failed to write test certificate: %v", err)
+	}
+
+	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(privateKey)})
+	if err := os.WriteFile(keyPath, keyPEM, 0600); err != nil {
+		t.Fatalf("failed to write test private key: %v", err)
+	}
 	return certPath, keyPath
 }
 
