@@ -15,6 +15,7 @@ import (
 // PKCS11Signer implements XMLSigner using a PKCS#11 hardware token.
 // This type provides XML digital signature functionality using keys stored in
 // Hardware Security Modules (HSMs) or other PKCS#11-compatible devices.
+// By default, it produces XAdES-B-B compliant signatures.
 type PKCS11Signer struct {
 	// Config contains the PKCS#11 module configuration (path, PIN, etc.)
 	Config *crypto11.Config
@@ -33,11 +34,13 @@ type PKCS11Signer struct {
 
 	// initialized indicates if the PKCS#11 context has been initialized
 	initialized bool
+
+	// xades controls whether XAdES-B-B QualifyingProperties are added (default: true)
+	xades bool
 }
 
 // NewPKCS11Signer creates a new PKCS11Signer from a PKCS#11 configuration and key/cert labels.
-// This constructor initializes a signer with the provided configuration but does not
-// connect to the PKCS#11 module until signing operations are performed.
+// XAdES-B-B compliance is enabled by default.
 //
 // Parameters:
 //   - config: PKCS#11 module configuration (path, PIN, token label, etc.)
@@ -52,6 +55,7 @@ func NewPKCS11Signer(config *crypto11.Config, keyLabel, certLabel string) *PKCS1
 		keyLabel:  keyLabel,
 		certLabel: certLabel,
 		keyID:     "01", // Default ID, can be set with SetKeyID
+		xades:     true,
 	}
 }
 
@@ -124,6 +128,11 @@ func (ps *PKCS11Signer) SetKeyID(id string) {
 	ps.keyID = id
 }
 
+// SetXAdES enables or disables XAdES-B-B compliant signatures.
+func (ps *PKCS11Signer) SetXAdES(enabled bool) {
+	ps.xades = enabled
+}
+
 // hexToBytes converts a hex string to bytes (handling both with and without '0x' prefix).
 // This helper function normalizes hex strings for use as PKCS#11 object IDs.
 //
@@ -167,7 +176,6 @@ func (ps *PKCS11Signer) Sign(xmlData []byte) ([]byte, error) {
 	}
 
 	// Get the private key by ID and label
-	// The crypto11 FindKeyPair function takes (id, label) parameters
 	privateKey, err := ps.context.FindKeyPair(idBytes, []byte(ps.keyLabel))
 	if err != nil {
 		return nil, fmt.Errorf("failed to find private key with label '%s' and ID '%s': %w",
@@ -175,15 +183,18 @@ func (ps *PKCS11Signer) Sign(xmlData []byte) ([]byte, error) {
 	}
 
 	// Get the certificate by ID and label
-	// The crypto11 FindCertificate function takes (id, label, serial) parameters
 	cert, err := ps.context.FindCertificate(idBytes, []byte(ps.certLabel), nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find certificate with label '%s' and ID '%s': %w",
 			ps.certLabel, ps.keyID, err)
 	}
 
-	// Create a goxmldsig PKCS11Signer that implements the Signer interface
-	// Using SHA256 as the default hash algorithm
+	// Use XAdES-B-B signing if enabled
+	if ps.xades {
+		return SignXMLWithXAdES(xmlData, privateKey, cert)
+	}
+
+	// Fall back to plain XML-DSIG
 	pkcs11Signer, err := xmldsig.NewPKCS11Signer(privateKey, cert.Raw, crypto.SHA256)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create PKCS11Signer: %w", err)

@@ -12,27 +12,36 @@ import (
 )
 
 // PKCS11Signer signs JSON payloads using a PKCS#11 hardware token.
+// By default it produces JAdES-B-B compliant signatures.
 type PKCS11Signer struct {
 	config    *crypto11.Config
 	context   *crypto11.Context
 	keyLabel  string
 	certLabel string
 	keyID     string
+	jades     bool // JAdES-B-B compliance (default: true)
 }
 
 // NewPKCS11Signer creates a JWS signer backed by a PKCS#11 HSM.
+// JAdES-B-B compliance is enabled by default.
 func NewPKCS11Signer(config *crypto11.Config, keyLabel, certLabel string) *PKCS11Signer {
 	return &PKCS11Signer{
 		config:    config,
 		keyLabel:  keyLabel,
 		certLabel: certLabel,
 		keyID:     "01",
+		jades:     true,
 	}
 }
 
 // SetKeyID sets the hex ID for key and certificate lookups.
 func (s *PKCS11Signer) SetKeyID(id string) {
 	s.keyID = id
+}
+
+// SetJAdES enables or disables JAdES-B-B compliant headers (sigT, x5t#S256).
+func (s *PKCS11Signer) SetJAdES(enabled bool) {
+	s.jades = enabled
 }
 
 // Sign produces a compact JWS serialization of the payload using the HSM key.
@@ -66,6 +75,10 @@ func (s *PKCS11Signer) Sign(payload []byte) (string, error) {
 	signingKey := jose.SigningKey{Algorithm: alg, Key: privateKey}
 	opts := &jose.SignerOptions{}
 	opts.WithHeader("x5c", [][]byte{cert.Raw})
+
+	if s.jades {
+		addJAdESHeaders(opts, cert)
+	}
 
 	signer, err := jose.NewSigner(signingKey, opts)
 	if err != nil {

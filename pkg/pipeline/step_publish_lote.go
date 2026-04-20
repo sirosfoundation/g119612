@@ -17,14 +17,19 @@ import (
 // PublishLoTE writes LoTE documents from ctx.LoTEs to JSON files,
 // optionally signing them with JWS.
 //
+// By default, signatures use JAdES-B-B profile (ETSI TS 119 182-1).
+// Pass "jades:false" as an argument to disable JAdES headers and produce plain JWS.
+//
 // Usage in pipeline YAML:
 //
 //   - publish-lote:
 //   - /path/to/output/dir                                              # unsigned JSON
 //   - publish-lote:
-//   - ["/path/to/dir", "/cert.pem", "/key.pem"]                       # JWS-signed with file key
+//   - ["/path/to/dir", "/cert.pem", "/key.pem"]                       # JAdES-signed (default)
 //   - publish-lote:
-//   - ["/path/to/dir", "pkcs11:module=/path;pin=1234", "key", "cert"] # JWS-signed with PKCS#11
+//   - ["/path/to/dir", "/cert.pem", "/key.pem", "jades:false"]        # plain JWS
+//   - publish-lote:
+//   - ["/path/to/dir", "pkcs11:module=/path;pin=1234", "key", "cert"] # JAdES-signed with PKCS#11
 func PublishLoTE(pl *Pipeline, ctx *Context, args ...string) (*Context, error) {
 	if len(args) < 1 {
 		return nil, fmt.Errorf("publish-lote requires at least 1 argument: output directory")
@@ -130,7 +135,24 @@ func loteFilename(lote *etsi119602.ListOfTrustedEntities, index int) string {
 
 // createLoTESigner creates a JWS signer from the remaining publish-lote arguments.
 // Returns nil signer if no signing args provided.
+// Supports "jades:false" argument to disable JAdES-B-B headers.
 func createLoTESigner(args []string) (jws.JSONSigner, error) {
+	if len(args) == 0 {
+		return nil, nil
+	}
+
+	// Check for jades:false in any argument position and filter it out
+	jadesEnabled := true
+	var filteredArgs []string
+	for _, arg := range args {
+		if arg == "jades:false" {
+			jadesEnabled = false
+		} else {
+			filteredArgs = append(filteredArgs, arg)
+		}
+	}
+	args = filteredArgs
+
 	if len(args) == 0 {
 		return nil, nil
 	}
@@ -153,6 +175,7 @@ func createLoTESigner(args []string) (jws.JSONSigner, error) {
 		if len(args) >= 4 {
 			signer.SetKeyID(args[3])
 		}
+		signer.SetJAdES(jadesEnabled)
 		return signer, nil
 	}
 
@@ -162,6 +185,7 @@ func createLoTESigner(args []string) (jws.JSONSigner, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to create JWS signer: %w", err)
 		}
+		s.SetJAdES(jadesEnabled)
 		return s, nil
 	}
 

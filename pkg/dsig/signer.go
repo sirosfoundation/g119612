@@ -16,7 +16,8 @@ import (
 // key storage mechanisms.
 type XMLSigner interface {
 	// Sign takes XML data as bytes and returns the signed XML data.
-	// The signature is added according to the XML-DSIG standard.
+	// The signature is added according to the XML-DSIG standard,
+	// with XAdES-B-B qualifying properties by default.
 	//
 	// Parameters:
 	//   - xmlData: The raw XML data to sign
@@ -25,6 +26,11 @@ type XMLSigner interface {
 	//   - The signed XML data
 	//   - An error if signing fails
 	Sign(xmlData []byte) ([]byte, error)
+}
+
+// XAdESConfigurable allows configuring XAdES compliance on a signer.
+type XAdESConfigurable interface {
+	SetXAdES(enabled bool)
 }
 
 // X509KeyStore defines an interface for accessing X.509 certificates and private keys.
