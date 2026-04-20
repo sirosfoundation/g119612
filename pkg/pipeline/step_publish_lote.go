@@ -120,7 +120,12 @@ func loteFilename(lote *etsi119602.ListOfTrustedEntities, index int) string {
 		if err == nil && u.Path != "" {
 			base := filepath.Base(u.Path)
 			if base != "" && base != "." && base != "/" {
-				return base
+				// Replace extension with .json
+				ext := filepath.Ext(base)
+				if ext != "" {
+					base = base[:len(base)-len(ext)]
+				}
+				return base + ".json"
 			}
 		}
 	}

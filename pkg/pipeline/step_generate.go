@@ -52,10 +52,11 @@ type CertificateMetadata struct {
 
 // SchemeMetadata represents the YAML structure for the TSL scheme metadata
 type SchemeMetadata struct {
-	OperatorNames  []MultiLangName `yaml:"operatorNames"`            // At least one name required
-	Type           string          `yaml:"type"`                     // URI identifying the TSL type
-	SequenceNumber int             `yaml:"sequenceNumber,omitempty"` // TSL sequence number
-	Id             string          `yaml:"id,omitempty"`             // Optional TSL Id attribute
+	OperatorNames      []MultiLangName `yaml:"operatorNames"`            // At least one name required
+	Type               string          `yaml:"type"`                     // URI identifying the TSL type
+	SequenceNumber     int             `yaml:"sequenceNumber,omitempty"` // TSL sequence number
+	Id                 string          `yaml:"id,omitempty"`             // Optional TSL Id attribute
+	DistributionPoints []string        `yaml:"distributionPoints,omitempty"` // Optional distribution point URIs
 }
 
 // TslId returns the TSL Id attribute value.
@@ -441,18 +442,26 @@ func GenerateTSL(pl *Pipeline, ctx *Context, args ...string) (*Context, error) {
 		}
 	}
 
+	schemeInfo := &etsi119612.TSLSchemeInformationType{
+		TSLVersionIdentifier: int(schemeMetadata.SequenceNumber),
+		TslTSLType:           schemeMetadata.Type,
+		ListIssueDateTime:    time.Now().UTC().Format(time.RFC3339),
+		TslSchemeOperatorName: &etsi119612.InternationalNamesType{
+			Name: operatorNames,
+		},
+	}
+
+	if len(schemeMetadata.DistributionPoints) > 0 {
+		schemeInfo.TslDistributionPoints = &etsi119612.NonEmptyURIListType{
+			URI: schemeMetadata.DistributionPoints,
+		}
+	}
+
 	tsl := &etsi119612.TSL{
 		StatusList: etsi119612.TrustStatusListType{
-			TSLTagAttr: "http://uri.etsi.org/19612/TSLTag",
-			IdAttr:     schemeMetadata.TslId(),
-			TslSchemeInformation: &etsi119612.TSLSchemeInformationType{
-				TSLVersionIdentifier: int(schemeMetadata.SequenceNumber),
-				TslTSLType:           schemeMetadata.Type,
-				ListIssueDateTime:    time.Now().UTC().Format(time.RFC3339),
-				TslSchemeOperatorName: &etsi119612.InternationalNamesType{
-					Name: operatorNames,
-				},
-			},
+			TSLTagAttr:                 "http://uri.etsi.org/19612/TSLTag",
+			IdAttr:                     schemeMetadata.TslId(),
+			TslSchemeInformation:       schemeInfo,
 			TslTrustServiceProviderList: &etsi119612.TrustServiceProviderListType{
 				TslTrustServiceProvider: []*etsi119612.TSPType{},
 			},
