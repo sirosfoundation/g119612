@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/sirosfoundation/g119612/pkg/etsi119612"
 	"gopkg.in/yaml.v3"
@@ -202,92 +203,118 @@ func addProviderCertificates(providerDir string, provider *etsi119612.TSPType) e
 		return fmt.Errorf("failed to read provider directory %s: %w", providerDir, err)
 	}
 
+	// Track which .yaml files have a matching .pem
+	hasPem := make(map[string]bool)
 	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".pem") {
+		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".pem") {
+			base := entry.Name()[:len(entry.Name())-4]
+			hasPem[base] = true
+		}
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() {
 			continue
 		}
 
-		certPath := filepath.Join(providerDir, entry.Name())
-		metadataPath := certPath[:len(certPath)-4] + ".yaml" // replace .pem with .yaml
+		// Process .pem files (with mandatory matching .yaml)
+		if strings.HasSuffix(entry.Name(), ".pem") {
+			certPath := filepath.Join(providerDir, entry.Name())
+			metadataPath := certPath[:len(certPath)-4] + ".yaml"
 
-		// Load certificate metadata
-		metadataBytes, err := os.ReadFile(metadataPath)
-		if err != nil {
-			return fmt.Errorf("failed to read certificate metadata from %s: %w", metadataPath, err)
-		}
-
-		var metadata CertificateMetadata
-		if err := yaml.Unmarshal(metadataBytes, &metadata); err != nil {
-			return fmt.Errorf("failed to parse certificate metadata from %s: %w", metadataPath, err)
-		}
-
-		if len(metadata.ServiceNames) == 0 {
-			return fmt.Errorf("certificate metadata must include at least one service name")
-		}
-
-		// Load certificate
-		certBytes, err := os.ReadFile(certPath)
-		if err != nil {
-			return fmt.Errorf("failed to read certificate from %s: %w", certPath, err)
-		}
-
-		// Try to parse the certificate to ensure it's valid
-		_, err = x509.ParseCertificate(certBytes)
-		if err != nil {
-			return fmt.Errorf("failed to decode invalid certificate data in %s: %w", certPath, err)
-		}
-
-		// Create service names
-		serviceNames := make([]*etsi119612.MultiLangNormStringType, len(metadata.ServiceNames))
-		for i, name := range metadata.ServiceNames {
-			serviceNames[i] = &etsi119612.MultiLangNormStringType{
-				XmlLangAttr: func() *etsi119612.Lang {
-					l := etsi119612.Lang(name.Language)
-					return &l
-				}(),
-				NonEmptyNormalizedString: func() *etsi119612.NonEmptyNormalizedString {
-					s := etsi119612.NonEmptyNormalizedString(name.Value)
-					return &s
-				}(),
+			metadata, err := loadCertMetadata(metadataPath)
+			if err != nil {
+				return err
 			}
-		}
 
-		// Create digital IDs - certificate bytes have been validated above
-		digitalIds := []*etsi119612.DigitalIdentityType{
-			{
-				X509Certificate: base64.StdEncoding.EncodeToString(certBytes),
-			},
-		}
-
-		if metadata.ServiceDigitalID != nil {
-			for _, id := range metadata.ServiceDigitalID.DigitalIDs {
-				digitalIds = append(digitalIds, &etsi119612.DigitalIdentityType{
-					X509Certificate: id,
-				})
+			certBytes, err := os.ReadFile(certPath)
+			if err != nil {
+				return fmt.Errorf("failed to read certificate from %s: %w", certPath, err)
 			}
+
+			if _, err = x509.ParseCertificate(certBytes); err != nil {
+				return fmt.Errorf("failed to decode invalid certificate data in %s: %w", certPath, err)
+			}
+
+			digitalIds := []*etsi119612.DigitalIdentityType{
+				{X509Certificate: base64.StdEncoding.EncodeToString(certBytes)},
+			}
+			if metadata.ServiceDigitalID != nil {
+				for _, id := range metadata.ServiceDigitalID.DigitalIDs {
+					digitalIds = append(digitalIds, &etsi119612.DigitalIdentityType{
+						X509Certificate: id,
+					})
+				}
+			}
+
+			service := buildServiceEntry(metadata)
+			service.TslServiceInformation.TslServiceDigitalIdentity = &etsi119612.DigitalIdentityListType{
+				DigitalId: digitalIds,
+			}
+			provider.TslTSPServices.TslTSPService = append(provider.TslTSPServices.TslTSPService, service)
+			continue
 		}
 
-		// Create service entry
-		service := &etsi119612.TSPServiceType{
-			TslServiceInformation: &etsi119612.TSPServiceInformationType{
-				TslServiceTypeIdentifier: metadata.ServiceType,
-				TslServiceStatus:         metadata.Status,
-				ServiceName: &etsi119612.InternationalNamesType{
-					Name: serviceNames,
-				},
-				TslServiceDigitalIdentity: &etsi119612.DigitalIdentityListType{
-					DigitalId: digitalIds,
-				},
-			},
-		}
+		// Process .yaml files without a matching .pem (services without certificates)
+		if strings.HasSuffix(entry.Name(), ".yaml") && entry.Name() != "provider.yaml" {
+			base := entry.Name()[:len(entry.Name())-5]
+			if hasPem[base] {
+				continue // already handled above with .pem
+			}
 
-		provider.TslTSPServices.TslTSPService = append(
-			provider.TslTSPServices.TslTSPService,
-			service,
-		)
+			metadataPath := filepath.Join(providerDir, entry.Name())
+			metadata, err := loadCertMetadata(metadataPath)
+			if err != nil {
+				return err
+			}
+
+			service := buildServiceEntry(metadata)
+			provider.TslTSPServices.TslTSPService = append(provider.TslTSPServices.TslTSPService, service)
+		}
 	}
 
 	return nil
+}
+
+func loadCertMetadata(path string) (*CertificateMetadata, error) {
+	metadataBytes, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read certificate metadata from %s: %w", path, err)
+	}
+	var metadata CertificateMetadata
+	if err := yaml.Unmarshal(metadataBytes, &metadata); err != nil {
+		return nil, fmt.Errorf("failed to parse certificate metadata from %s: %w", path, err)
+	}
+	if len(metadata.ServiceNames) == 0 {
+		return nil, fmt.Errorf("certificate metadata must include at least one service name")
+	}
+	return &metadata, nil
+}
+
+func buildServiceEntry(metadata *CertificateMetadata) *etsi119612.TSPServiceType {
+	serviceNames := make([]*etsi119612.MultiLangNormStringType, len(metadata.ServiceNames))
+	for i, name := range metadata.ServiceNames {
+		serviceNames[i] = &etsi119612.MultiLangNormStringType{
+			XmlLangAttr: func() *etsi119612.Lang {
+				l := etsi119612.Lang(name.Language)
+				return &l
+			}(),
+			NonEmptyNormalizedString: func() *etsi119612.NonEmptyNormalizedString {
+				s := etsi119612.NonEmptyNormalizedString(name.Value)
+				return &s
+			}(),
+		}
+	}
+
+	return &etsi119612.TSPServiceType{
+		TslServiceInformation: &etsi119612.TSPServiceInformationType{
+			TslServiceTypeIdentifier: metadata.ServiceType,
+			TslServiceStatus:         metadata.Status,
+			ServiceName: &etsi119612.InternationalNamesType{
+				Name: serviceNames,
+			},
+		},
+	}
 }
 
 // GenerateTSL is a pipeline step that generates a Trust Service List (TSL) from a structured directory.
@@ -403,6 +430,7 @@ func GenerateTSL(pl *Pipeline, ctx *Context, args ...string) (*Context, error) {
 			TslSchemeInformation: &etsi119612.TSLSchemeInformationType{
 				TSLVersionIdentifier: int(schemeMetadata.SequenceNumber),
 				TslTSLType:           schemeMetadata.Type,
+				ListIssueDateTime:    time.Now().UTC().Format(time.RFC3339),
 				TslSchemeOperatorName: &etsi119612.InternationalNamesType{
 					Name: operatorNames,
 				},
