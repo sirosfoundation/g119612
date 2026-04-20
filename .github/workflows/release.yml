@@ -11,17 +11,6 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        include:
-          - goos: linux
-            goarch: amd64
-          - goos: linux
-            goarch: arm64
-          - goos: darwin
-            goarch: amd64
-          - goos: darwin
-            goarch: arm64
     steps:
       - uses: actions/checkout@v4
 
@@ -29,20 +18,20 @@ jobs:
         with:
           go-version-file: go.mod
 
+      - name: Install PKCS#11 headers
+        run: sudo apt-get update && sudo apt-get install -y libsofthsm2-dev
+
       - name: Build
         run: |
-          BINARY="tsl-tool-${{ matrix.goos }}-${{ matrix.goarch }}"
-          CGO_ENABLED=0 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} \
-            go build -ldflags "-X main.Version=${{ github.ref_name }}" \
+          BINARY="tsl-tool-linux-amd64"
+          go build -ldflags "-X main.Version=${{ github.ref_name }}" \
             -o "$BINARY" ./cmd/tsl-tool
-        env:
-          CGO_ENABLED: '0'
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: tsl-tool-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: tsl-tool-${{ matrix.goos }}-${{ matrix.goarch }}
+          name: tsl-tool-linux-amd64
+          path: tsl-tool-linux-amd64
 
   publish:
     needs: release
