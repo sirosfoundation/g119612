@@ -184,7 +184,7 @@ tsl-source/
 └── providers/               # One subdirectory per trust service provider
     └── my-provider/
         ├── provider.yaml    # Provider metadata
-        ├── cert1.pem        # X.509 certificate (PEM)
+        ├── cert1.pem        # X.509 certificate (DER-encoded bytes; despite the example extension, not PEM text)
         └── cert1.yaml       # Service metadata for cert1.pem
 ```
 
