@@ -3,6 +3,7 @@ package pipeline
 import (
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/pem"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -227,17 +228,13 @@ func addProviderCertificates(providerDir string, provider *etsi119612.TSPType) e
 				return err
 			}
 
-			certBytes, err := os.ReadFile(certPath)
+			derBytes, err := loadCertificateDER(certPath)
 			if err != nil {
-				return fmt.Errorf("failed to read certificate from %s: %w", certPath, err)
-			}
-
-			if _, err = x509.ParseCertificate(certBytes); err != nil {
-				return fmt.Errorf("failed to decode invalid certificate data in %s: %w", certPath, err)
+				return err
 			}
 
 			digitalIds := []*etsi119612.DigitalIdentityType{
-				{X509Certificate: base64.StdEncoding.EncodeToString(certBytes)},
+				{X509Certificate: base64.StdEncoding.EncodeToString(derBytes)},
 			}
 			if metadata.ServiceDigitalID != nil {
 				for _, id := range metadata.ServiceDigitalID.DigitalIDs {
@@ -289,6 +286,27 @@ func loadCertMetadata(path string) (*CertificateMetadata, error) {
 		return nil, fmt.Errorf("certificate metadata must include at least one service name")
 	}
 	return &metadata, nil
+}
+
+// loadCertificateDER reads a certificate file and returns DER-encoded bytes.
+// It auto-detects PEM vs DER format.
+func loadCertificateDER(path string) ([]byte, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read certificate from %s: %w", path, err)
+	}
+
+	// Try PEM decode first
+	block, _ := pem.Decode(data)
+	if block != nil {
+		data = block.Bytes
+	}
+
+	if _, err := x509.ParseCertificate(data); err != nil {
+		return nil, fmt.Errorf("failed to decode invalid certificate data in %s: %w", path, err)
+	}
+
+	return data, nil
 }
 
 func buildServiceEntry(metadata *CertificateMetadata) *etsi119612.TSPServiceType {
