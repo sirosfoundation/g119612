@@ -215,7 +215,7 @@ address:                      # Optional
 tradeName:                    # Optional
   - language: en
     value: "Example Corp"
-informationURI:               # Optional
+informationURI:               # Required
   - language: en
     value: "https://example.com/info"
 ```
