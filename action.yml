@@ -18,11 +18,12 @@ runs:
       run: |
         VERSION="${{ inputs.version }}"
         if [ "$VERSION" = "latest" ]; then
-          VERSION=$(gh release view --repo sirosfoundation/g119612 --json tagName -q .tagName)
+          # Follow the /latest redirect to get the tag name from the URL
+          VERSION=$(curl -sfLI -o /dev/null -w '%{url_effective}' \
+            "https://github.com/sirosfoundation/g119612/releases/latest" \
+            | grep -o '[^/]*$')
         fi
         echo "tag=$VERSION" >> "$GITHUB_OUTPUT"
-      env:
-        GH_TOKEN: ${{ inputs.token }}
 
     - name: Determine platform
       id: platform
@@ -49,16 +50,12 @@ runs:
         INSTALL_DIR="${HOME}/.local/bin"
         mkdir -p "$INSTALL_DIR"
 
-        gh release download "$TAG" \
-          --repo sirosfoundation/g119612 \
-          --pattern "$ASSET" \
-          --dir "$INSTALL_DIR"
+        # Use the GitHub release browser download URL (no API parsing needed)
+        URL="https://github.com/sirosfoundation/g119612/releases/download/${TAG}/${ASSET}"
+        curl -sfL -o "$INSTALL_DIR/tsl-tool" "$URL"
 
-        mv "$INSTALL_DIR/$ASSET" "$INSTALL_DIR/tsl-tool"
         chmod +x "$INSTALL_DIR/tsl-tool"
         echo "$INSTALL_DIR" >> "$GITHUB_PATH"
-      env:
-        GH_TOKEN: ${{ inputs.token }}
 
     - name: Verify installation
       shell: bash
