@@ -16,6 +16,7 @@ type Context struct {
 	TSLTrees        *utils.Stack[*TSLTree]                          // A stack of TSL trees, where each tree represents a loaded root TSL and its references
 	TSLs            *utils.Stack[*etsi119612.TSL]                   // DEPRECATED: Legacy stack of TSLs for backward compatibility
 	LoTEs           *utils.Stack[*etsi119602.ListOfTrustedEntities] // Stack of LoTE (List of Trusted Entities) documents
+	LoTLs           *utils.Stack[*etsi119602.ListOfTrustedLists]    // Stack of LoTL (List of Trusted Lists) documents
 	CertPool        *x509.CertPool                                  // Certificate pool for trust verification
 	Data            map[string]any                                  // Data store for sharing information between pipeline steps
 	TSLFetchOptions *etsi119612.TSLFetchOptions                     // Options for fetching Trust Status Lists
@@ -229,6 +230,15 @@ func (ctx *Context) Copy() *Context {
 		}
 	}
 
+	// Copy LoTLs stack if it exists
+	if ctx.LoTLs != nil {
+		newCtx.EnsureLoTLs()
+		lotls := ctx.LoTLs.ToSlice()
+		for i := len(lotls) - 1; i >= 0; i-- {
+			newCtx.LoTLs.Push(lotls[i])
+		}
+	}
+
 	return newCtx
 }
 
@@ -243,6 +253,7 @@ func NewContext() *Context {
 		TSLTrees: utils.NewStack[*TSLTree](),
 		TSLs:     utils.NewStack[*etsi119612.TSL](),
 		LoTEs:    utils.NewStack[*etsi119602.ListOfTrustedEntities](),
+		LoTLs:    utils.NewStack[*etsi119602.ListOfTrustedLists](),
 		Data:     make(map[string]any),
 		Report:   NewPipelineReport(),
 	}
@@ -304,4 +315,38 @@ func (ctx *Context) GetLoTECount() int {
 		return 0
 	}
 	return ctx.LoTEs.Size()
+}
+
+// EnsureLoTLs ensures that the LoTL stack is initialized.
+func (ctx *Context) EnsureLoTLs() *Context {
+	if ctx.LoTLs == nil {
+		ctx.LoTLs = utils.NewStack[*etsi119602.ListOfTrustedLists]()
+	}
+	return ctx
+}
+
+// AddLoTL adds a LoTL document to the stack.
+func (ctx *Context) AddLoTL(lotl *etsi119602.ListOfTrustedLists) *Context {
+	if lotl == nil {
+		return ctx
+	}
+	ctx.EnsureLoTLs()
+	ctx.LoTLs.Push(lotl)
+	return ctx
+}
+
+// GetLoTLs returns all LoTLs from the context as a slice.
+func (ctx *Context) GetLoTLs() []*etsi119602.ListOfTrustedLists {
+	if ctx.LoTLs == nil {
+		return nil
+	}
+	return ctx.LoTLs.ToSlice()
+}
+
+// GetLoTLCount returns the number of loaded LoTLs.
+func (ctx *Context) GetLoTLCount() int {
+	if ctx.LoTLs == nil {
+		return 0
+	}
+	return ctx.LoTLs.Size()
 }
