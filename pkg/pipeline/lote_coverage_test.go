@@ -268,14 +268,13 @@ func TestLoadLoTE_InvalidFile(t *testing.T) {
 
 func TestLoadLoTE_InvalidCertPath(t *testing.T) {
 	dir := t.TempDir()
-	lote := &etsi119602.ListOfTrustedEntities{Version: etsi119602.LoTEVersion}
-	data, err := json.Marshal(lote)
-	require.NoError(t, err)
-	path := filepath.Join(dir, "test.json")
-	require.NoError(t, os.WriteFile(path, data, 0600))
+
+	// Use invalid JSON so the initial load fails and it tries JWS verification
+	path := filepath.Join(dir, "test.jws")
+	require.NoError(t, os.WriteFile(path, []byte("not-a-valid-jws"), 0600))
 
 	ctx := NewContext()
-	_, err = LoadLoTE(nil, ctx, path, "/nonexistent/cert.pem")
+	_, err := LoadLoTE(nil, ctx, path, "/nonexistent/cert.pem")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to create JWS verifier")
 }
