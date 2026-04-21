@@ -36,6 +36,10 @@ type LoTLPointerMeta struct {
 //	root/
 //	  └── lotl.yaml           # LoTL scheme metadata with pointers
 //
+// If the directory contains scheme.yaml instead of lotl.yaml, a LoTE is
+// generated via GenerateLoTE. This allows generate-lote and generate-lotl
+// to be used interchangeably with auto-detection.
+//
 // Usage in pipeline YAML:
 //
 //   - generate-lotl:
@@ -46,6 +50,13 @@ func GenerateLoTL(pl *Pipeline, ctx *Context, args ...string) (*Context, error) 
 	}
 
 	rootDir := args[0]
+
+	// Auto-detect: if lotl.yaml doesn't exist but scheme.yaml does, delegate
+	if _, err := os.Stat(filepath.Join(rootDir, "lotl.yaml")); os.IsNotExist(err) {
+		if _, sErr := os.Stat(filepath.Join(rootDir, "scheme.yaml")); sErr == nil {
+			return GenerateLoTE(pl, ctx, args...)
+		}
+	}
 
 	// Load LoTL metadata
 	metaData, err := os.ReadFile(filepath.Join(rootDir, "lotl.yaml"))

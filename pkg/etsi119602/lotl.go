@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 )
 
 // Well-known LoTE/LoTL scheme type URIs per WP4 trust group implementation profile.
@@ -96,6 +97,13 @@ func (l *ListOfTrustedLists) Marshal() ([]byte, error) {
 // MarshalIndent serializes the LoTL to indented JSON.
 func (l *ListOfTrustedLists) MarshalIndent() ([]byte, error) {
 	return json.MarshalIndent(l, "", "  ")
+}
+
+// IsLoTLSchemeType returns true if the given scheme type URI identifies
+// a List of Trusted Lists rather than a List of Trusted Entities.
+// This is used for auto-classification when loading ETSI TS 119 602 documents.
+func IsLoTLSchemeType(schemeType string) bool {
+	return strings.Contains(schemeType, "/LoTLType/")
 }
 
 // ToLoTE converts the LoTL to a LoTE representation for format interoperability.

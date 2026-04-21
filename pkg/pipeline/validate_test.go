@@ -47,7 +47,7 @@ func TestValidateLoTE_Empty(t *testing.T) {
 	ctx := NewContext()
 	_, err := ValidateLoTE(nil, ctx)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "no LoTEs")
+	assert.Contains(t, err.Error(), "no LoTEs or LoTLs")
 }
 
 func TestValidateLoTE_MultipleOneInvalid(t *testing.T) {
@@ -104,5 +104,35 @@ func TestValidateLoTL_Empty(t *testing.T) {
 	ctx := NewContext()
 	_, err := ValidateLoTL(nil, ctx)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "no LoTLs")
+	assert.Contains(t, err.Error(), "no LoTEs or LoTLs")
+}
+
+func TestValidate_Mixed(t *testing.T) {
+	ctx := NewContext()
+	ctx.AddLoTE(&etsi119602.ListOfTrustedEntities{
+		Version: "1.0",
+		SchemeInformation: etsi119602.SchemeInformation{
+			SchemeOperator: etsi119602.NameSet{{Language: "en", Value: "Test"}},
+			SchemeType:     "http://example.com/type",
+			IssueDate:      time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+		},
+		TrustedEntities: []etsi119602.TrustedEntity{
+			{EntityID: "https://example.com", EntityStatus: etsi119602.StatusGranted},
+		},
+	})
+	ctx.EnsureLoTLs()
+	ctx.AddLoTL(&etsi119602.ListOfTrustedLists{
+		Version: etsi119602.LoTEVersion,
+		SchemeInformation: etsi119602.SchemeInformation{
+			SchemeOperator: etsi119602.NameSet{{Language: "en", Value: "EC"}},
+			SchemeType:     etsi119602.LoTLTypeEU,
+			IssueDate:      time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+		},
+		PointersToOtherLoTEs: []etsi119602.LoTEPointer{
+			{Location: "https://example.com/lote.json"},
+		},
+	})
+
+	ctx, err := Validate(nil, ctx)
+	require.NoError(t, err)
 }

@@ -40,25 +40,44 @@ func TestPublishLoTL_Unsigned(t *testing.T) {
 	ctx, err := PublishLoTL(nil, ctx, outputDir)
 	require.NoError(t, err)
 
-	// Should have created JSON file
+	// Default: JSON only
 	jsonData, err := os.ReadFile(filepath.Join(outputDir, "list_of_trusted_lists-EU.json"))
 	require.NoError(t, err)
 	assert.Contains(t, string(jsonData), `"territory": "EU"`)
 
-	// Should have created XML file
-	xmlData, err := os.ReadFile(filepath.Join(outputDir, "list_of_trusted_lists-EU.xml"))
-	require.NoError(t, err)
-	assert.Contains(t, string(xmlData), "ListAndSchemeInformation")
-	assert.Contains(t, string(xmlData), "Test Operator")
+	// XML should NOT exist without xml flag
+	_, err = os.ReadFile(filepath.Join(outputDir, "list_of_trusted_lists-EU.xml"))
+	assert.True(t, os.IsNotExist(err), "XML should not be produced by default")
 }
 
-func TestPublishLoTL_JSONOnly(t *testing.T) {
+func TestPublishLoTL_WithXML(t *testing.T) {
 	dir := t.TempDir()
 	outputDir := filepath.Join(dir, "output")
 
 	ctx := NewContext()
 	ctx.AddLoTL(validLoTL())
 
+	ctx, err := PublishLoTL(nil, ctx, outputDir, "xml")
+	require.NoError(t, err)
+
+	// Both JSON and XML should exist
+	jsonData, err := os.ReadFile(filepath.Join(outputDir, "list_of_trusted_lists-EU.json"))
+	require.NoError(t, err)
+	assert.Contains(t, string(jsonData), `"territory": "EU"`)
+
+	xmlData, err := os.ReadFile(filepath.Join(outputDir, "list_of_trusted_lists-EU.xml"))
+	require.NoError(t, err)
+	assert.Contains(t, string(xmlData), "ListAndSchemeInformation")
+}
+
+func TestPublishLoTL_JSONOnlyFlag(t *testing.T) {
+	dir := t.TempDir()
+	outputDir := filepath.Join(dir, "output")
+
+	ctx := NewContext()
+	ctx.AddLoTL(validLoTL())
+
+	// json-only is effectively the default (no XML), but should still work
 	ctx, err := PublishLoTL(nil, ctx, outputDir, "json-only")
 	require.NoError(t, err)
 
@@ -82,8 +101,9 @@ func TestPublishLoTL_XMLOnly(t *testing.T) {
 	require.NoError(t, err)
 
 	// XML should exist
-	_, err = os.ReadFile(filepath.Join(outputDir, "list_of_trusted_lists-EU.xml"))
+	xmlData, err := os.ReadFile(filepath.Join(outputDir, "list_of_trusted_lists-EU.xml"))
 	require.NoError(t, err)
+	assert.Contains(t, string(xmlData), "ListAndSchemeInformation")
 
 	// JSON should NOT exist
 	_, err = os.ReadFile(filepath.Join(outputDir, "list_of_trusted_lists-EU.json"))

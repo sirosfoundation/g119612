@@ -14,8 +14,11 @@ import (
 	"github.com/sirosfoundation/g119612/pkg/validation"
 )
 
-// PublishLoTE writes LoTE documents from ctx.LoTEs to JSON files,
-// optionally signing them with JWS. Can also produce XML output.
+// PublishLoTE writes LoTE and LoTL documents from context to JSON and/or XML files,
+// optionally signing them with JWS (JSON) or XAdES (XML).
+//
+// Publishes both ctx.LoTEs and ctx.LoTLs in a single step.
+// This step is registered as both "publish-lote" and "publish-lotl".
 //
 // By default, signatures use JAdES-B-B profile (ETSI TS 119 182-1).
 // Pass "jades:false" as an argument to disable JAdES headers and produce plain JWS.
@@ -72,8 +75,7 @@ func PublishLoTE(pl *Pipeline, ctx *Context, args ...string) (*Context, error) {
 		if pl != nil && pl.Logger != nil {
 			pl.Logger.Warn("No LoTEs in context to publish")
 		}
-		return ctx, nil
-	}
+	} else {
 
 	// Validate all LoTEs before writing anything
 	lotes := ctx.LoTEs.ToSlice()
@@ -155,6 +157,80 @@ func PublishLoTE(pl *Pipeline, ctx *Context, args ...string) (*Context, error) {
 				pl.Logger.Info("Published LoTE (XML)",
 					logging.F("path", xmlPath),
 					logging.F("entities", len(lote.TrustedEntities)))
+			}
+		}
+	}
+	} // end LoTEs block
+
+	// Publish LoTLs from context
+	if ctx.LoTLs != nil && ctx.LoTLs.Size() > 0 {
+		lotls := ctx.LoTLs.ToSlice()
+		for i, lotl := range lotls {
+			if err := lotl.Validate(); err != nil {
+				return nil, fmt.Errorf("LoTL %d failed validation: %w", i, err)
+			}
+		}
+
+		for i, lotl := range lotls {
+			basename := lotlFilename(lotl, i)
+
+			if !xmlOnly {
+				lote := lotl.ToLoTE()
+				jsonData, err := lote.MarshalIndent()
+				if err != nil {
+					return nil, fmt.Errorf("failed to marshal LoTL %d to JSON: %w", i, err)
+				}
+
+				jsonPath := filepath.Join(outputDir, basename+".json")
+				if err := os.WriteFile(jsonPath, jsonData, 0640); err != nil {
+					return nil, fmt.Errorf("failed to write LoTL JSON: %w", err)
+				}
+
+				if signer != nil {
+					compact, err := signer.Sign(jsonData)
+					if err != nil {
+						return nil, fmt.Errorf("failed to sign LoTL %d (JWS): %w", i, err)
+					}
+					if err := os.WriteFile(jsonPath+".jws", []byte(compact), 0640); err != nil {
+						return nil, fmt.Errorf("failed to write signed LoTL JWS: %w", err)
+					}
+				}
+
+				if pl != nil && pl.Logger != nil {
+					pl.Logger.Info("Published LoTL (JSON)",
+						logging.F("path", jsonPath),
+						logging.F("pointers", len(lotl.PointersToOtherLoTEs)))
+				}
+			}
+
+			if wantXML {
+				xmlData, err := lotl.EncodeXML()
+				if err != nil {
+					return nil, fmt.Errorf("failed to marshal LoTL %d to XML: %w", i, err)
+				}
+
+				xmlPath := filepath.Join(outputDir, basename+".xml")
+
+				if xmlSigner != nil {
+					signed, err := xmlSigner.Sign(xmlData)
+					if err != nil {
+						return nil, fmt.Errorf("failed to sign LoTL %d (XAdES): %w", i, err)
+					}
+					if err := os.WriteFile(xmlPath, signed, 0640); err != nil {
+						return nil, fmt.Errorf("failed to write signed LoTL XML: %w", err)
+					}
+				} else {
+					fullXML := append([]byte("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"), xmlData...)
+					if err := os.WriteFile(xmlPath, fullXML, 0640); err != nil {
+						return nil, fmt.Errorf("failed to write LoTL XML: %w", err)
+					}
+				}
+
+				if pl != nil && pl.Logger != nil {
+					pl.Logger.Info("Published LoTL (XML)",
+						logging.F("path", xmlPath),
+						logging.F("pointers", len(lotl.PointersToOtherLoTEs)))
+				}
 			}
 		}
 	}
@@ -270,7 +346,7 @@ func filterLoteXMLArgs(args []string) []string {
 	var filtered []string
 	for _, arg := range args {
 		switch arg {
-		case "xml", "xml-only", "jades:false":
+		case "xml", "xml-only", "json-only", "jades:false":
 			continue
 		default:
 			filtered = append(filtered, arg)

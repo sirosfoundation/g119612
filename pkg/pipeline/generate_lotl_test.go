@@ -111,3 +111,27 @@ schemeType: "http://example.com/type"
 	require.Len(t, lotls, 1)
 	assert.Empty(t, lotls[0].PointersToOtherLoTEs)
 }
+
+func TestGenerateLoTL_AutoDetectsSchemeYAML(t *testing.T) {
+	// Using generate-lotl on a directory with scheme.yaml should produce a LoTE
+	dir := t.TempDir()
+
+	schemeYAML := `operatorNames:
+  - language: en
+    value: "Test Operator"
+schemeType: "http://example.com/lote-type"
+territory: SE
+`
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "scheme.yaml"), []byte(schemeYAML), 0644))
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "entities"), 0750))
+
+	ctx := NewContext()
+	ctx, err := GenerateLoTL(nil, ctx, dir)
+	require.NoError(t, err)
+
+	// Should have produced a LoTE, not a LoTL
+	assert.Equal(t, 0, ctx.GetLoTLCount())
+	lotes := ctx.LoTEs.ToSlice()
+	require.Len(t, lotes, 1)
+	assert.Equal(t, "SE", lotes[0].SchemeInformation.Territory)
+}

@@ -112,3 +112,38 @@ func TestLoadLoTE_IDUnionXML(t *testing.T) {
 	require.Len(t, loaded, 1)
 	assert.GreaterOrEqual(t, len(loaded[0].TrustedEntities), 1)
 }
+
+func TestLoadLoTE_AutoClassifiesLoTL(t *testing.T) {
+	dir := t.TempDir()
+
+	// Create a document with LoTL scheme type — should go to LoTLs stack
+	lote := &etsi119602.ListOfTrustedEntities{
+		Version: etsi119602.LoTEVersion,
+		SchemeInformation: etsi119602.SchemeInformation{
+			Territory:      "EU",
+			SchemeOperator: etsi119602.NameSet{{Language: "en", Value: "EC"}},
+			SchemeType:     etsi119602.LoTLTypeEU,
+			IssueDate:      time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+		},
+		PointersToOtherLoTEs: []etsi119602.LoTEPointer{
+			{Location: "https://example.com/lote.json"},
+		},
+	}
+	data, err := json.Marshal(lote)
+	require.NoError(t, err)
+
+	path := filepath.Join(dir, "lotl.json")
+	require.NoError(t, os.WriteFile(path, data, 0644))
+
+	ctx := NewContext()
+	ctx, err = LoadLoTE(nil, ctx, path)
+	require.NoError(t, err)
+
+	// Should be classified as LoTL, not LoTE
+	assert.Equal(t, 0, ctx.GetLoTECount())
+	assert.Equal(t, 1, ctx.GetLoTLCount())
+	lotls := ctx.GetLoTLs()
+	require.Len(t, lotls, 1)
+	assert.Equal(t, "EU", lotls[0].SchemeInformation.Territory)
+	assert.Len(t, lotls[0].PointersToOtherLoTEs, 1)
+}

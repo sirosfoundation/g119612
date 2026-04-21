@@ -13,18 +13,20 @@ import (
 	"github.com/sirosfoundation/g119612/pkg/logging"
 )
 
-// LoadLoTE loads a LoTE (List of Trusted Entities) from a URL or file path
-// and pushes it onto ctx.LoTEs. Automatically detects JSON vs XML format
-// based on file extension and content type.
+// LoadLoTE loads an ETSI TS 119 602 document (LoTE or LoTL) from a URL or file path.
+// Automatically detects JSON vs XML format based on file extension and content type.
+// Automatically classifies the document as a LoTE or LoTL based on its scheme type:
+//   - LoTL scheme types (containing "/LoTLType/") → pushed onto ctx.LoTLs
+//   - All other scheme types → pushed onto ctx.LoTEs
+//
+// This step is registered as both "load-lote" and "load-lotl" since it handles both.
 //
 // Usage in pipeline YAML:
 //
 //   - load-lote:
-//   - https://example.com/lote.json                            # JSON
+//   - https://example.com/lote.json                            # JSON LoTE
 //   - load-lote:
-//   - https://example.com/lote.xml                             # XML (auto-detected)
-//   - load-lote:
-//   - /path/to/lote.json
+//   - https://example.com/lotl.xml                             # XML LoTL (auto-classified)
 //   - load-lote:
 //   - [url_or_path, /path/to/trusted-cert.pem]                 # with JWS/XAdES verification
 func LoadLoTE(pl *Pipeline, ctx *Context, args ...string) (*Context, error) {
@@ -77,14 +79,29 @@ func LoadLoTE(pl *Pipeline, ctx *Context, args ...string) (*Context, error) {
 		}
 	}
 
-	if pl != nil && pl.Logger != nil {
-		pl.Logger.Info("Loaded LoTE",
-			logging.F("source", location),
-			logging.F("entities", len(lote.TrustedEntities)),
-			logging.F("territory", lote.SchemeInformation.Territory))
+	// Auto-classify: LoTL scheme types go to the LoTLs stack, others to LoTEs
+	if etsi119602.IsLoTLSchemeType(lote.SchemeInformation.SchemeType) {
+		lotl := etsi119602.LoTLFromLoTE(lote)
+		ctx.EnsureLoTLs()
+		ctx.LoTLs.Push(lotl)
+
+		if pl != nil && pl.Logger != nil {
+			pl.Logger.Info("Loaded LoTL",
+				logging.F("source", location),
+				logging.F("pointers", len(lotl.PointersToOtherLoTEs)),
+				logging.F("territory", lotl.SchemeInformation.Territory))
+		}
+	} else {
+		ctx.AddLoTE(lote)
+
+		if pl != nil && pl.Logger != nil {
+			pl.Logger.Info("Loaded LoTE",
+				logging.F("source", location),
+				logging.F("entities", len(lote.TrustedEntities)),
+				logging.F("territory", lote.SchemeInformation.Territory))
+		}
 	}
 
-	ctx.AddLoTE(lote)
 	return ctx, nil
 }
 
