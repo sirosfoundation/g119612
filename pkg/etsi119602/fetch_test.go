@@ -272,7 +272,7 @@ func TestFetchLoTL_FromJSONFile(t *testing.T) {
 	lotl := &ListOfTrustedLists{
 		Version: LoTEVersion,
 		SchemeInformation: SchemeInformation{
-			Territory: "EU",
+			Territory:  "EU",
 			SchemeType: LoTLTypeEU,
 		},
 		PointersToOtherLoTEs: []LoTEPointer{
