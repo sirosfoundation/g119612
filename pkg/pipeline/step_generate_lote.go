@@ -53,12 +53,21 @@ type LoTEServiceMetadata struct {
 //	          └── key1.jwk      # JWK key (JSON file)
 //
 // The generated LoTE is pushed onto ctx.LoTEs.
+//
+// If the directory contains lotl.yaml instead of scheme.yaml, a LoTL is
+// generated and pushed onto ctx.LoTLs. This allows generate-lote and
+// generate-lotl to be used interchangeably with auto-detection.
 func GenerateLoTE(pl *Pipeline, ctx *Context, args ...string) (*Context, error) {
 	if len(args) < 1 {
 		return nil, fmt.Errorf("generate-lote requires 1 argument: path to root directory")
 	}
 
 	rootDir := args[0]
+
+	// Auto-detect: if lotl.yaml exists, delegate to GenerateLoTL
+	if _, err := os.Stat(filepath.Join(rootDir, "lotl.yaml")); err == nil {
+		return GenerateLoTL(pl, ctx, args...)
+	}
 
 	// Load scheme metadata
 	schemeData, err := os.ReadFile(filepath.Join(rootDir, "scheme.yaml"))

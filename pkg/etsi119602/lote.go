@@ -23,6 +23,10 @@ type ListOfTrustedEntities struct {
 	// Version identifies the LoTE schema version.
 	Version string `json:"version"`
 
+	// LOTETag is the XML LOTETag attribute value. When empty and marshalling to XML,
+	// the default LOTETag constant is used.
+	LOTETag string `json:"-"`
+
 	// SchemeInformation describes the list operator and list metadata.
 	SchemeInformation SchemeInformation `json:"schemeInformation"`
 

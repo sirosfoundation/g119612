@@ -40,15 +40,29 @@ clean: ## remove temporary files
 .PHONY: realclean
 realclean: ## remove generated files - requires "make gen"
 	rm -f pkg/etsi119612/*.xsd.go
+	rm -f pkg/etsi119602/xmltypes/*.xsd.go
 
 # horrid
 .PHONY: gen
-gen: ## generate code from xsd
+gen: gen-tsl gen-lote ## generate code from xsd
+
+.PHONY: gen-tsl
+gen-tsl: ## generate TS 119 612 (TSL) types from xsd
 	xgen -i xsd2024 -o pkg/etsi119612 -l Go -p etsi119612
 	sed -i 's/xml:lang/lang/g' pkg/etsi119612/*.xsd.go
 	sed -i 's/tsl://g' pkg/etsi119612/*.xsd.go
 	sed -i 's/*NonEmptyNormalizedString/*NonEmptyNormalizedString `xml:",chardata"`/g' pkg/etsi119612/*.xsd.go
 	sed -i 's/*NonEmptyString/*NonEmptyString `xml:",chardata"`/g' pkg/etsi119612/*.xsd.go
+
+.PHONY: gen-lote
+gen-lote: ## generate TS 119 602 (LoTE) XML types from xsd
+	xgen -i xsd_lote -o pkg/etsi119602/xmltypes -l Go -p xmltypes
+	sed -i 's/xml:lang/lang/g' pkg/etsi119602/xmltypes/*.xsd.go
+	sed -i 's/lote://g' pkg/etsi119602/xmltypes/*.xsd.go
+	sed -i 's/tie://g' pkg/etsi119602/xmltypes/*.xsd.go
+	sed -i 's/*NonEmptyNormalizedString/*NonEmptyNormalizedString `xml:",chardata"`/g' pkg/etsi119602/xmltypes/*.xsd.go
+	sed -i 's/*NonEmptyString/*NonEmptyString `xml:",chardata"`/g' pkg/etsi119602/xmltypes/*.xsd.go
+	sed -i '/^type AnyType struct {/{n;s/^}$$/\tContent string `xml:",chardata"`\n}/}' pkg/etsi119602/xmltypes/1960201_xsd_schema.xsd.go
 
 gosec:
 	$(info Run gosec)
