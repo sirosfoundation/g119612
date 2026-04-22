@@ -27,10 +27,20 @@ const (
 
 // --- Marshaling: LoTE → XML ---
 
-// EncodeXML serializes the LoTE to XML bytes using XSD-generated types.
+// xmlLoTEWrapper is a named wrapper for marshaling with the correct root element and namespace.
+type xmlLoTEWrapper struct {
+	XMLName xml.Name `xml:"http://uri.etsi.org/019602/v1# ListOfTrustedEntities"`
+	xmltypes.ListOfTrustedEntitiesType
+}
+
+// EncodeXML serializes the LoTE to XML bytes using XSD-generated types,
+// with the correct root element name and ETSI TS 119 602 namespace.
 func (l *ListOfTrustedEntities) EncodeXML() ([]byte, error) {
 	x := toXMLLoTE(l)
-	return xml.MarshalIndent(x, "", "  ")
+	wrapper := xmlLoTEWrapper{
+		ListOfTrustedEntitiesType: *x,
+	}
+	return xml.MarshalIndent(wrapper, "", "  ")
 }
 
 // EncodeXMLToFile writes the LoTE as XML to a file.

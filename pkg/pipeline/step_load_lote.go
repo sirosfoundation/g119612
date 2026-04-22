@@ -5,7 +5,6 @@ import (
 	"encoding/pem"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/sirosfoundation/g119612/pkg/dsig"
 	"github.com/sirosfoundation/g119612/pkg/etsi119602"
@@ -50,32 +49,53 @@ func LoadLoTE(pl *Pipeline, ctx *Context, args ...string) (*Context, error) {
 		verifierCertPath = args[1]
 	}
 
-	// Try loading with auto-detection (handles both JSON and XML)
-	lote, err := etsi119602.FetchLoTE(location, fetchOpts)
+	// Fetch raw bytes once — used for both parsing and signature verification
+	rawData, err := etsi119602.FetchRaw(location, fetchOpts)
 	if err != nil {
-		// If load fails and we have a verifier cert, try JWS verification
-		if verifierCertPath != "" {
-			verifier, vErr := jws.NewCertFileVerifier(verifierCertPath)
-			if vErr != nil {
-				return nil, fmt.Errorf("failed to create JWS verifier from %s: %w", verifierCertPath, vErr)
+		return nil, fmt.Errorf("failed to fetch from %s: %w", location, err)
+	}
+
+	// Detect format from content (not just URL extension)
+	isXML := etsi119602.IsXMLContent(rawData)
+
+	var lote *etsi119602.ListOfTrustedEntities
+
+	if isXML {
+		lote, err = etsi119602.ParseLoTEXML(rawData)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse XML LoTE from %s: %w", location, err)
+		}
+	} else {
+		lote, err = etsi119602.ParseLoTE(rawData)
+		if err != nil {
+			// If JSON parse fails and we have a verifier cert, try JWS verification
+			if verifierCertPath != "" {
+				verifier, vErr := jws.NewCertFileVerifier(verifierCertPath)
+				if vErr != nil {
+					return nil, fmt.Errorf("failed to create JWS verifier from %s: %w", verifierCertPath, vErr)
+				}
+				payload, vErr := verifier.Verify(string(rawData))
+				if vErr != nil {
+					return nil, fmt.Errorf("JWS verification failed for %s: %w", location, vErr)
+				}
+				lote, err = etsi119602.ParseLoTE(payload)
+				if err != nil {
+					return nil, fmt.Errorf("failed to parse verified LoTE from %s: %w", location, err)
+				}
+			} else {
+				return nil, fmt.Errorf("failed to load LoTE from %s: %w", location, err)
 			}
-			lote, err = etsi119602.FetchAndVerifyLoTE(location, fetchOpts, verifier)
-			if err != nil {
-				return nil, fmt.Errorf("failed to load and verify LoTE from %s: %w", location, err)
-			}
-		} else {
-			return nil, fmt.Errorf("failed to load LoTE from %s: %w", location, err)
 		}
 	}
 
-	// If we loaded XML and have a verification cert, verify XAdES signature
-	if verifierCertPath != "" && isXMLLocation(location) {
+	// If XML and verification cert provided, verify XAdES signature on the same bytes
+	if isXML && verifierCertPath != "" {
 		certs, vErr := loadVerificationCerts(verifierCertPath)
 		if vErr != nil {
 			return nil, fmt.Errorf("failed to load verification certs from %s: %w", verifierCertPath, vErr)
 		}
-		if err := verifyLoTEXMLSignature(location, fetchOpts, certs); err != nil {
-			return nil, fmt.Errorf("XAdES verification failed for %s: %w", location, err)
+		if _, vErr := dsig.VerifyXMLSignature(rawData, certs); vErr != nil {
+			return nil, fmt.Errorf("XAdES verification failed for %s: %w", location, vErr)
 		}
 	}
 
@@ -103,16 +123,6 @@ func LoadLoTE(pl *Pipeline, ctx *Context, args ...string) (*Context, error) {
 	}
 
 	return ctx, nil
-}
-
-// isXMLLocation returns true if the location looks like it points to an XML resource.
-func isXMLLocation(location string) bool {
-	loc := strings.ToLower(location)
-	// Strip query/fragment
-	if idx := strings.IndexAny(loc, "?#"); idx >= 0 {
-		loc = loc[:idx]
-	}
-	return strings.HasSuffix(loc, ".xml")
 }
 
 // loadVerificationCerts loads X.509 certificates from a PEM or DER file.
@@ -149,16 +159,6 @@ func loadVerificationCerts(certPath string) ([]*x509.Certificate, error) {
 		return nil, fmt.Errorf("failed to parse certificate from %s: %w", certPath, err)
 	}
 	return []*x509.Certificate{cert}, nil
-}
-
-// verifyLoTEXMLSignature fetches raw XML and verifies its XAdES/XML-DSIG signature.
-func verifyLoTEXMLSignature(location string, opts *etsi119602.FetchOptions, certs []*x509.Certificate) error {
-	data, err := etsi119602.FetchRaw(location, opts)
-	if err != nil {
-		return fmt.Errorf("failed to fetch XML for verification: %w", err)
-	}
-	_, err = dsig.VerifyXMLSignature(data, certs)
-	return err
 }
 
 // IncrementLoTESequence increments the sequence number on all LoTEs in context.

@@ -124,27 +124,44 @@ func isXMLLocation(location string) bool {
 	return ext == ".xml"
 }
 
-// isXMLContent detects XML content by checking for the XML declaration or
+// IsXMLContent detects XML content by checking for the XML declaration or
 // a root element starting with '<'.
-func isXMLContent(data []byte) bool {
+func IsXMLContent(data []byte) bool {
 	trimmed := bytes.TrimSpace(data)
 	return bytes.HasPrefix(trimmed, []byte("<?xml")) || bytes.HasPrefix(trimmed, []byte("<"))
 }
 
-// parseLoTEFileAutoDetect loads a LoTE from a file, auto-detecting JSON vs XML.
+// parseLoTEFileAutoDetect loads a LoTE from a file, auto-detecting JSON vs XML
+// based on file extension first, then falling back to content sniffing.
 func parseLoTEFileAutoDetect(path string) (*ListOfTrustedEntities, error) {
 	if isXMLLocation(path) {
 		return ParseLoTEXMLFromFile(path)
 	}
-	return ParseLoTEFromFile(path)
+	// Read content and sniff for XML
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read file %s: %w", path, err)
+	}
+	if IsXMLContent(data) {
+		return ParseLoTEXML(data)
+	}
+	return ParseLoTE(data)
 }
 
-// parseLoTLFileAutoDetect loads a LoTL from a file, auto-detecting JSON vs XML.
+// parseLoTLFileAutoDetect loads a LoTL from a file, auto-detecting JSON vs XML
+// based on file extension first, then falling back to content sniffing.
 func parseLoTLFileAutoDetect(path string) (*ListOfTrustedLists, error) {
 	if isXMLLocation(path) {
 		return ParseLoTLXMLFromFile(path)
 	}
-	return ParseLoTLFromFile(path)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read file %s: %w", path, err)
+	}
+	if IsXMLContent(data) {
+		return ParseLoTLXML(data)
+	}
+	return ParseLoTL(data)
 }
 
 func fetchLoTEFromURL(url string, opts *FetchOptions) (*ListOfTrustedEntities, error) {
@@ -156,7 +173,7 @@ func fetchLoTEFromURL(url string, opts *FetchOptions) (*ListOfTrustedEntities, e
 	if err != nil {
 		return nil, err
 	}
-	if isXMLContentType(contentType) || (contentType == "" && isXMLContent(body)) {
+	if isXMLContentType(contentType) || (contentType == "" && IsXMLContent(body)) {
 		return ParseLoTEXML(body)
 	}
 	return ParseLoTE(body)
@@ -171,14 +188,19 @@ func fetchLoTLFromURL(url string, opts *FetchOptions) (*ListOfTrustedLists, erro
 	if err != nil {
 		return nil, err
 	}
-	if isXMLContentType(contentType) || (contentType == "" && isXMLContent(body)) {
+	if isXMLContentType(contentType) || (contentType == "" && IsXMLContent(body)) {
 		return ParseLoTLXML(body)
 	}
 	return ParseLoTL(body)
 }
 
 func isXMLContentType(ct string) bool {
-	return ct == "application/xml" || ct == "text/xml"
+	// Strip parameters (e.g. "application/xml; charset=utf-8")
+	if idx := strings.IndexByte(ct, ';'); idx >= 0 {
+		ct = strings.TrimSpace(ct[:idx])
+	}
+	ct = strings.ToLower(ct)
+	return ct == "application/xml" || ct == "text/xml" || strings.HasSuffix(ct, "+xml")
 }
 
 func fetchRawFromURL(url string, opts *FetchOptions, accept string) ([]byte, error) {

@@ -2,6 +2,7 @@ package xmltypes
 
 import (
 	"encoding/xml"
+	"io"
 	"strings"
 )
 
@@ -40,7 +41,10 @@ func (m *MultiLangNormStringType) UnmarshalXML(d *xml.Decoder, start xml.StartEl
 	for {
 		tok, err := d.Token()
 		if err != nil {
-			break
+			if err == io.EOF {
+				break
+			}
+			return err
 		}
 		switch t := tok.(type) {
 		case xml.CharData:
@@ -89,7 +93,10 @@ func (m *MultiLangStringType) UnmarshalXML(d *xml.Decoder, start xml.StartElemen
 	for {
 		tok, err := d.Token()
 		if err != nil {
-			break
+			if err == io.EOF {
+				break
+			}
+			return err
 		}
 		switch t := tok.(type) {
 		case xml.CharData:

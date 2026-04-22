@@ -200,7 +200,7 @@ func TestFetchLoTE_XMLFile(t *testing.T) {
 
 	// Write a minimal LoTE XML file
 	xmlData := `<?xml version="1.0" encoding="UTF-8"?>
-<ListOfTrustedEntitiesType LOTETag="http://uri.etsi.org/019602/LOTETag">
+<ListOfTrustedEntitiesType xmlns:lote="http://uri.etsi.org/019602/v1#" LOTETag="http://uri.etsi.org/019602/LOTETag">
   <lote:ListAndSchemeInformation>
     <LoTEVersionIdentifier>1</LoTEVersionIdentifier>
     <lote:LoTEType>http://example.com/type</lote:LoTEType>
@@ -223,7 +223,7 @@ func TestFetchLoTE_XMLFileWithFilePrefix(t *testing.T) {
 	dir := t.TempDir()
 
 	xmlData := `<?xml version="1.0" encoding="UTF-8"?>
-<ListOfTrustedEntitiesType LOTETag="http://uri.etsi.org/019602/LOTETag">
+<ListOfTrustedEntitiesType xmlns:lote="http://uri.etsi.org/019602/v1#" LOTETag="http://uri.etsi.org/019602/LOTETag">
   <lote:ListAndSchemeInformation>
     <LoTEVersionIdentifier>1</LoTEVersionIdentifier>
     <lote:LoTEType>http://example.com/type</lote:LoTEType>
@@ -244,7 +244,7 @@ func TestFetchLoTE_XMLFileWithFilePrefix(t *testing.T) {
 
 func TestFetchLoTE_HTTPAutoDetectXML(t *testing.T) {
 	xmlData := `<?xml version="1.0" encoding="UTF-8"?>
-<ListOfTrustedEntitiesType LOTETag="http://uri.etsi.org/019602/LOTETag">
+<ListOfTrustedEntitiesType xmlns:lote="http://uri.etsi.org/019602/v1#" LOTETag="http://uri.etsi.org/019602/LOTETag">
   <lote:ListAndSchemeInformation>
     <LoTEVersionIdentifier>1</LoTEVersionIdentifier>
     <lote:LoTEType>http://example.com/type</lote:LoTEType>
@@ -336,9 +336,9 @@ func TestIsXMLLocation(t *testing.T) {
 }
 
 func TestIsXMLContent(t *testing.T) {
-	assert.True(t, isXMLContent([]byte(`<?xml version="1.0"?><root/>`)))
-	assert.True(t, isXMLContent([]byte(`  <?xml version="1.0"?>`)))
-	assert.True(t, isXMLContent([]byte(`<root/>`)))
-	assert.False(t, isXMLContent([]byte(`{"version": "1.0"}`)))
-	assert.False(t, isXMLContent([]byte(`not xml`)))
+	assert.True(t, IsXMLContent([]byte(`<?xml version="1.0"?><root/>`)))
+	assert.True(t, IsXMLContent([]byte(`  <?xml version="1.0"?>`)))
+	assert.True(t, IsXMLContent([]byte(`<root/>`)))
+	assert.False(t, IsXMLContent([]byte(`{"version": "1.0"}`)))
+	assert.False(t, IsXMLContent([]byte(`not xml`)))
 }

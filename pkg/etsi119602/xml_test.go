@@ -84,7 +84,7 @@ func TestXMLRoundTrip(t *testing.T) {
 
 	// Verify XML uses XSD structure
 	xmlStr := string(xmlData)
-	assert.Contains(t, xmlStr, "ListOfTrustedEntitiesType")
+	assert.Contains(t, xmlStr, "ListOfTrustedEntities")
 	assert.Contains(t, xmlStr, "ListAndSchemeInformation")
 	assert.Contains(t, xmlStr, "TrustedEntitiesList")
 	assert.Contains(t, xmlStr, "TrustedEntityInformation")
