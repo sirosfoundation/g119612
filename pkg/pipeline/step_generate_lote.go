@@ -85,15 +85,17 @@ func GenerateLoTE(pl *Pipeline, ctx *Context, args ...string) (*Context, error) 
 		return nil, fmt.Errorf("scheme.yaml must have a schemeType")
 	}
 
+	now := time.Now().UTC().Format(time.RFC3339)
 	lote := &etsi119602.ListOfTrustedEntities{
-		Version: etsi119602.LoTEVersion,
-		SchemeInformation: etsi119602.SchemeInformation{
-			Territory:      scheme.Territory,
-			SchemeOperator: multiLangToNameSet(scheme.OperatorNames),
-			SchemeName:     multiLangToNameSet(scheme.SchemeName),
-			SchemeType:     scheme.SchemeType,
-			SequenceNumber: scheme.SequenceNumber,
-			IssueDate:      time.Now().UTC(),
+		ListAndSchemeInformation: etsi119602.ListAndSchemeInformation{
+			LoTEVersionIdentifier: 1,
+			SchemeTerritory:       scheme.Territory,
+			SchemeOperatorName:    multiLangToNameSet(scheme.OperatorNames),
+			SchemeName:            multiLangToNameSet(scheme.SchemeName),
+			LoTEType:              scheme.SchemeType,
+			LoTESequenceNumber:    scheme.SequenceNumber,
+			ListIssueDateTime:     now,
+			NextUpdate:            now,
 		},
 	}
 
@@ -120,12 +122,12 @@ func GenerateLoTE(pl *Pipeline, ctx *Context, args ...string) (*Context, error) 
 		if err != nil {
 			return nil, fmt.Errorf("failed to load entity %s: %w", entry.Name(), err)
 		}
-		lote.TrustedEntities = append(lote.TrustedEntities, *entity)
+		lote.TrustedEntitiesList = append(lote.TrustedEntitiesList, *entity)
 	}
 
 	if pl != nil && pl.Logger != nil {
 		pl.Logger.Info("Generated LoTE",
-			logging.F("entities", len(lote.TrustedEntities)),
+			logging.F("entities", len(lote.TrustedEntitiesList)),
 			logging.F("territory", scheme.Territory))
 	}
 
@@ -152,13 +154,13 @@ func loadLoTEEntity(entityDir string) (*etsi119602.TrustedEntity, error) {
 	}
 
 	entity := &etsi119602.TrustedEntity{
-		EntityID:     meta.EntityID,
-		EntityName:   multiLangToNameSet(meta.Names),
-		EntityType:   meta.EntityType,
-		EntityStatus: meta.Status,
+		TrustedEntityInformation: etsi119602.TrustedEntityInformation{
+			TEName: multiLangToNameSet(meta.Names),
+		},
 	}
 
-	// Load digital identities from certificate and JWK files
+	// Collect digital identities from certificate, JWK, and DID files
+	var sdi etsi119602.ServiceDigitalIdentity
 	files, err := os.ReadDir(entityDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read entity directory: %w", err)
@@ -181,10 +183,8 @@ func loadLoTEEntity(entityDir string) (*etsi119602.TrustedEntity, error) {
 			if err != nil {
 				return nil, fmt.Errorf("failed to parse certificate %s: %w", name, err)
 			}
-			entity.DigitalIdentities = append(entity.DigitalIdentities, etsi119602.DigitalIdentity{
-				Type:            "x509",
-				X509Certificate: base64.StdEncoding.EncodeToString(cert.Raw),
-			})
+			sdi.X509Certificates = append(sdi.X509Certificates,
+				etsi119602.PKIOb{Val: base64.StdEncoding.EncodeToString(cert.Raw)})
 
 		case strings.HasSuffix(name, ".jwk"):
 			jwkData, err := os.ReadFile(path)
@@ -198,10 +198,7 @@ func loadLoTEEntity(entityDir string) (*etsi119602.TrustedEntity, error) {
 					return nil, fmt.Errorf("failed to parse JWK %s: %w", name, err)
 				}
 			}
-			entity.DigitalIdentities = append(entity.DigitalIdentities, etsi119602.DigitalIdentity{
-				Type: "jwk",
-				JWK:  jwk,
-			})
+			sdi.PublicKeyValues = append(sdi.PublicKeyValues, jwk)
 
 		case strings.HasSuffix(name, ".did"):
 			didData, err := os.ReadFile(path)
@@ -212,20 +209,31 @@ func loadLoTEEntity(entityDir string) (*etsi119602.TrustedEntity, error) {
 			if !strings.HasPrefix(did, "did:") {
 				return nil, fmt.Errorf("invalid DID in %s: must start with 'did:'", name)
 			}
-			entity.DigitalIdentities = append(entity.DigitalIdentities, etsi119602.DigitalIdentity{
-				Type: "did",
-				DID:  did,
-			})
+			sdi.OtherIds = append(sdi.OtherIds, did)
 		}
 	}
 
 	// Convert service metadata
 	for _, svc := range meta.Services {
-		entity.Services = append(entity.Services, etsi119602.EntityService{
-			ServiceType:   svc.ServiceType,
-			ServiceName:   multiLangToNameSet(svc.ServiceNames),
-			ServiceStatus: svc.Status,
+		entity.TrustedEntityServices = append(entity.TrustedEntityServices, etsi119602.TrustedEntityService{
+			ServiceInformation: etsi119602.ServiceInformation{
+				ServiceTypeIdentifier:  svc.ServiceType,
+				ServiceName:            multiLangToNameSet(svc.ServiceNames),
+				ServiceStatus:          svc.Status,
+				ServiceDigitalIdentity: sdi,
+			},
 		})
+	}
+
+	// If no services defined, create a default service from the entity-level identities
+	if len(entity.TrustedEntityServices) == 0 {
+		entity.TrustedEntityServices = []etsi119602.TrustedEntityService{{
+			ServiceInformation: etsi119602.ServiceInformation{
+				ServiceName:            multiLangToNameSet(meta.Names),
+				ServiceStatus:          meta.Status,
+				ServiceDigitalIdentity: sdi,
+			},
+		}}
 	}
 
 	return entity, nil
@@ -237,7 +245,7 @@ func multiLangToNameSet(names []MultiLangName) etsi119602.NameSet {
 	}
 	ns := make(etsi119602.NameSet, len(names))
 	for i, n := range names {
-		ns[i] = etsi119602.LangString{Language: n.Language, Value: n.Value}
+		ns[i] = etsi119602.MultiLangString{Lang: n.Language, Value: n.Value}
 	}
 	return ns
 }

@@ -4,7 +4,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/sirosfoundation/g119612/pkg/etsi119602"
 	"github.com/stretchr/testify/assert"
@@ -13,18 +12,20 @@ import (
 
 func validLoTL() *etsi119602.ListOfTrustedLists {
 	return &etsi119602.ListOfTrustedLists{
-		Version: etsi119602.LoTEVersion,
-		SchemeInformation: etsi119602.SchemeInformation{
-			Territory:      "EU",
-			SchemeOperator: etsi119602.NameSet{{Language: "en", Value: "Test Operator"}},
-			SchemeType:     etsi119602.LoTLTypeEU,
-			IssueDate:      time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
-		},
-		PointersToOtherLoTEs: []etsi119602.LoTEPointer{
-			{
-				Location:        "https://example.com/lote.json",
-				SchemeTerritory: "EU",
-				SchemeType:      etsi119602.LoTETypePIDProviders,
+		ListAndSchemeInformation: etsi119602.ListAndSchemeInformation{
+			LoTEVersionIdentifier: 1,
+			SchemeTerritory:       "EU",
+			SchemeOperatorName:    etsi119602.NameSet{{Lang: "en", Value: "Test Operator"}},
+			LoTEType:              etsi119602.LoTLTypeEU,
+			ListIssueDateTime:     "2026-01-01T00:00:00Z",
+			NextUpdate:            "2027-01-01T00:00:00Z",
+			PointersToOtherLoTE: []etsi119602.OtherLoTEPointer{
+				{
+					LoTELocation: "https://example.com/lote.json",
+					LoTEQualifiers: []etsi119602.LoTEQualifier{
+						{SchemeTerritory: "EU", LoTEType: etsi119602.LoTETypePIDProviders},
+					},
+				},
 			},
 		},
 	}
@@ -43,9 +44,7 @@ func TestPublishLoTL_Unsigned(t *testing.T) {
 	// Default: JSON only
 	jsonData, err := os.ReadFile(filepath.Join(outputDir, "list_of_trusted_lists-EU.json"))
 	require.NoError(t, err)
-	assert.Contains(t, string(jsonData), `"territory": "EU"`)
-
-	// XML should NOT exist without xml flag
+	assert.Contains(t, string(jsonData), `"SchemeTerritory": "EU"`)
 	_, err = os.ReadFile(filepath.Join(outputDir, "list_of_trusted_lists-EU.xml"))
 	assert.True(t, os.IsNotExist(err), "XML should not be produced by default")
 }
@@ -63,7 +62,7 @@ func TestPublishLoTL_WithXML(t *testing.T) {
 	// Both JSON and XML should exist
 	jsonData, err := os.ReadFile(filepath.Join(outputDir, "list_of_trusted_lists-EU.json"))
 	require.NoError(t, err)
-	assert.Contains(t, string(jsonData), `"territory": "EU"`)
+	assert.Contains(t, string(jsonData), `"SchemeTerritory": "EU"`)
 
 	xmlData, err := os.ReadFile(filepath.Join(outputDir, "list_of_trusted_lists-EU.xml"))
 	require.NoError(t, err)
@@ -131,7 +130,7 @@ func TestPublishLoTL_FilenameNoTerritory(t *testing.T) {
 	outputDir := filepath.Join(dir, "output")
 
 	lotl := validLoTL()
-	lotl.SchemeInformation.Territory = ""
+	lotl.ListAndSchemeInformation.SchemeTerritory = ""
 
 	ctx := NewContext()
 	ctx.AddLoTL(lotl)
@@ -150,10 +149,9 @@ func TestPublishLoTE_XMLFlag(t *testing.T) {
 
 	ctx := NewContext()
 	ctx.AddLoTE(&etsi119602.ListOfTrustedEntities{
-		Version:           "1.0",
-		SchemeInformation: validSchemeInfo("SE"),
-		TrustedEntities: []etsi119602.TrustedEntity{
-			{EntityID: "https://example.com", EntityStatus: etsi119602.StatusGranted},
+		ListAndSchemeInformation: validSchemeInfo("SE"),
+		TrustedEntitiesList: []etsi119602.TrustedEntity{
+			{TrustedEntityInformation: etsi119602.TrustedEntityInformation{TEName: etsi119602.NameSet{{Lang: "en", Value: "https://example.com"}}}, TrustedEntityServices: []etsi119602.TrustedEntityService{{ServiceInformation: etsi119602.ServiceInformation{ServiceName: etsi119602.NameSet{{Lang: "en", Value: "svc"}}, ServiceStatus: etsi119602.StatusGranted}}}},
 		},
 	})
 
@@ -175,10 +173,9 @@ func TestPublishLoTE_XMLOnly(t *testing.T) {
 
 	ctx := NewContext()
 	ctx.AddLoTE(&etsi119602.ListOfTrustedEntities{
-		Version:           "1.0",
-		SchemeInformation: validSchemeInfo("SE"),
-		TrustedEntities: []etsi119602.TrustedEntity{
-			{EntityID: "https://example.com", EntityStatus: etsi119602.StatusGranted},
+		ListAndSchemeInformation: validSchemeInfo("SE"),
+		TrustedEntitiesList: []etsi119602.TrustedEntity{
+			{TrustedEntityInformation: etsi119602.TrustedEntityInformation{TEName: etsi119602.NameSet{{Lang: "en", Value: "https://example.com"}}}, TrustedEntityServices: []etsi119602.TrustedEntityService{{ServiceInformation: etsi119602.ServiceInformation{ServiceName: etsi119602.NameSet{{Lang: "en", Value: "svc"}}, ServiceStatus: etsi119602.StatusGranted}}}},
 		},
 	})
 

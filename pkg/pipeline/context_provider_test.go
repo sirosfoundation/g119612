@@ -62,12 +62,14 @@ func TestGetLoTEs(t *testing.T) {
 	assert.Empty(t, ctx.GetLoTEs())
 
 	lote := &etsi119602.ListOfTrustedEntities{
-		Version: "1.0",
+		ListAndSchemeInformation: etsi119602.ListAndSchemeInformation{
+			LoTEVersionIdentifier: 1,
+		},
 	}
 	ctx.AddLoTE(lote)
 	lotes := ctx.GetLoTEs()
 	assert.Len(t, lotes, 1)
-	assert.Equal(t, "1.0", lotes[0].Version)
+	assert.Equal(t, 1, lotes[0].ListAndSchemeInformation.LoTEVersionIdentifier)
 }
 
 func TestGetLoTEs_NilStack(t *testing.T) {

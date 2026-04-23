@@ -30,9 +30,9 @@ func TestFromTSL_Basic(t *testing.T) {
 						{XmlLangAttr: &lang, NonEmptyNormalizedString: &name},
 					},
 				},
-				TslTSLType:         "http://uri.etsi.org/TrstSvc/TrustedList/TSLType/EUlistofthelists",
-				TSLSequenceNumber:  5,
-				ListIssueDateTime:  "2026-01-01T00:00:00Z",
+				TslTSLType:        "http://uri.etsi.org/TrstSvc/TrustedList/TSLType/EUlistofthelists",
+				TSLSequenceNumber: 5,
+				ListIssueDateTime: "2026-01-01T00:00:00Z",
 			},
 			TslTrustServiceProviderList: &etsi119612.TrustServiceProviderListType{
 				TslTrustServiceProvider: []*etsi119612.TSPType{
@@ -94,7 +94,7 @@ func TestFromTSL_Basic(t *testing.T) {
 func TestFromTSL_WithPointers(t *testing.T) {
 	tsl := &etsi119612.TSL{
 		StatusList: etsi119612.TrustStatusListType{
-				TslSchemeInformation: &etsi119612.TSLSchemeInformationType{
+			TslSchemeInformation: &etsi119612.TSLSchemeInformationType{
 				TslSchemeTerritory: "EU",
 				TslPointersToOtherTSL: &etsi119612.OtherTSLPointersType{
 					TslOtherTSLPointer: []*etsi119612.OtherTSLPointerType{

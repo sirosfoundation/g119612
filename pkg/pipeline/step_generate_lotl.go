@@ -74,30 +74,34 @@ func GenerateLoTL(pl *Pipeline, ctx *Context, args ...string) (*Context, error) 
 		return nil, fmt.Errorf("lotl.yaml must have a schemeType")
 	}
 
+	now := time.Now().UTC().Format(time.RFC3339)
 	lotl := &etsi119602.ListOfTrustedLists{
-		Version: etsi119602.LoTEVersion,
-		SchemeInformation: etsi119602.SchemeInformation{
-			Territory:      meta.Territory,
-			SchemeOperator: multiLangToNameSet(meta.OperatorNames),
-			SchemeName:     multiLangToNameSet(meta.SchemeName),
-			SchemeType:     meta.SchemeType,
-			SequenceNumber: meta.SequenceNumber,
-			IssueDate:      time.Now().UTC(),
+		ListAndSchemeInformation: etsi119602.ListAndSchemeInformation{
+			LoTEVersionIdentifier: 1,
+			SchemeTerritory:       meta.Territory,
+			SchemeOperatorName:    multiLangToNameSet(meta.OperatorNames),
+			SchemeName:            multiLangToNameSet(meta.SchemeName),
+			LoTEType:              meta.SchemeType,
+			LoTESequenceNumber:    meta.SequenceNumber,
+			ListIssueDateTime:     now,
+			NextUpdate:            now,
 		},
 	}
 
 	// Build pointers from metadata
 	for _, pm := range meta.Pointers {
-		lotl.PointersToOtherLoTEs = append(lotl.PointersToOtherLoTEs, etsi119602.LoTEPointer{
-			Location:        pm.Location,
-			SchemeTerritory: pm.SchemeTerritory,
-			SchemeType:      pm.SchemeType,
+		lotl.ListAndSchemeInformation.PointersToOtherLoTE = append(lotl.ListAndSchemeInformation.PointersToOtherLoTE, etsi119602.OtherLoTEPointer{
+			LoTELocation: pm.Location,
+			LoTEQualifiers: []etsi119602.LoTEQualifier{{
+				SchemeTerritory: pm.SchemeTerritory,
+				LoTEType:        pm.SchemeType,
+			}},
 		})
 	}
 
 	if pl != nil && pl.Logger != nil {
 		pl.Logger.Info("Generated LoTL",
-			logging.F("pointers", len(lotl.PointersToOtherLoTEs)),
+			logging.F("pointers", len(lotl.ListAndSchemeInformation.PointersToOtherLoTE)),
 			logging.F("territory", meta.Territory))
 	}
 

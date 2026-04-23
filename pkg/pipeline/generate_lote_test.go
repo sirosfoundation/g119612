@@ -48,12 +48,12 @@ status: "http://uri.etsi.org/TrstSvc/TrustedList/Svcstatus/granted"
 	require.Len(t, lotes, 1)
 
 	lote := lotes[0]
-	assert.Equal(t, "1.0", lote.Version)
-	assert.Equal(t, "SE", lote.SchemeInformation.Territory)
-	assert.Len(t, lote.TrustedEntities, 1)
-	assert.Equal(t, "https://issuer.example.com", lote.TrustedEntities[0].EntityID)
-	assert.Len(t, lote.TrustedEntities[0].DigitalIdentities, 1)
-	assert.Equal(t, "jwk", lote.TrustedEntities[0].DigitalIdentities[0].Type)
+	assert.Equal(t, 1, lote.ListAndSchemeInformation.LoTEVersionIdentifier)
+	assert.Equal(t, "SE", lote.ListAndSchemeInformation.SchemeTerritory)
+	assert.Len(t, lote.TrustedEntitiesList, 1)
+	assert.Equal(t, "Test Issuer", lote.TrustedEntitiesList[0].TrustedEntityInformation.TEName[0].Value)
+	require.NotEmpty(t, lote.TrustedEntitiesList[0].TrustedEntityServices)
+	assert.NotEmpty(t, lote.TrustedEntitiesList[0].TrustedEntityServices[0].ServiceInformation.ServiceDigitalIdentity.PublicKeyValues)
 }
 
 func TestGenerateLoTE_EmptyEntities(t *testing.T) {
@@ -71,7 +71,7 @@ schemeType: "http://example.com/lote"
 	ctx, err := GenerateLoTE(nil, ctx, dir)
 	require.NoError(t, err)
 	assert.Equal(t, 1, ctx.GetLoTECount())
-	assert.Empty(t, ctx.GetLoTEs()[0].TrustedEntities)
+	assert.Empty(t, ctx.GetLoTEs()[0].TrustedEntitiesList)
 }
 
 func TestGenerateLoTE_MissingScheme(t *testing.T) {
@@ -145,6 +145,6 @@ services:
 	require.NoError(t, err)
 
 	lote := ctx.GetLoTEs()[0]
-	require.Len(t, lote.TrustedEntities, 1)
-	assert.Len(t, lote.TrustedEntities[0].Services, 2)
+	require.Len(t, lote.TrustedEntitiesList, 1)
+	assert.Len(t, lote.TrustedEntitiesList[0].TrustedEntityServices, 2)
 }

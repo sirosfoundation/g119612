@@ -42,7 +42,7 @@ type ListAndSchemeInformation struct {
 	LoTESequenceNumber          int                       `json:"LoTESequenceNumber"`
 	LoTEType                    string                    `json:"LoTEType,omitempty"`
 	SchemeOperatorName          NameSet                   `json:"SchemeOperatorName"`
-	SchemeOperatorAddress       *SchemeOperatorAddress     `json:"SchemeOperatorAddress,omitempty"`
+	SchemeOperatorAddress       *SchemeOperatorAddress    `json:"SchemeOperatorAddress,omitempty"`
 	SchemeName                  NameSet                   `json:"SchemeName,omitempty"`
 	SchemeInformationURI        []NonEmptyMultiLangURI    `json:"SchemeInformationURI,omitempty"`
 	StatusDeterminationApproach string                    `json:"StatusDeterminationApproach,omitempty"`
@@ -174,21 +174,21 @@ type TrustedEntityInformation struct {
 
 // TrustedEntityService describes a trust service provided by an entity.
 type TrustedEntityService struct {
-	ServiceInformation ServiceInformation    `json:"ServiceInformation"`
+	ServiceInformation ServiceInformation       `json:"ServiceInformation"`
 	ServiceHistory     []ServiceHistoryInstance `json:"ServiceHistory,omitempty"`
 }
 
 // ServiceInformation contains service metadata.
 type ServiceInformation struct {
-	ServiceName                  NameSet                `json:"ServiceName"`
-	ServiceDigitalIdentity       ServiceDigitalIdentity `json:"ServiceDigitalIdentity"`
-	ServiceTypeIdentifier        string                 `json:"ServiceTypeIdentifier,omitempty"`
-	ServiceStatus                string                 `json:"ServiceStatus,omitempty"`
-	StatusStartingTime           string                 `json:"StatusStartingTime,omitempty"`
-	SchemeServiceDefinitionURI   []NonEmptyMultiLangURI `json:"SchemeServiceDefinitionURI,omitempty"`
+	ServiceName                  NameSet                 `json:"ServiceName"`
+	ServiceDigitalIdentity       ServiceDigitalIdentity  `json:"ServiceDigitalIdentity"`
+	ServiceTypeIdentifier        string                  `json:"ServiceTypeIdentifier,omitempty"`
+	ServiceStatus                string                  `json:"ServiceStatus,omitempty"`
+	StatusStartingTime           string                  `json:"StatusStartingTime,omitempty"`
+	SchemeServiceDefinitionURI   []NonEmptyMultiLangURI  `json:"SchemeServiceDefinitionURI,omitempty"`
 	ServiceSupplyPoints          []ServiceSupplyPointURI `json:"ServiceSupplyPoints,omitempty"`
-	ServiceDefinitionURI         []NonEmptyMultiLangURI `json:"ServiceDefinitionURI,omitempty"`
-	ServiceInformationExtensions []json.RawMessage      `json:"ServiceInformationExtensions,omitempty"`
+	ServiceDefinitionURI         []NonEmptyMultiLangURI  `json:"ServiceDefinitionURI,omitempty"`
+	ServiceInformationExtensions []json.RawMessage       `json:"ServiceInformationExtensions,omitempty"`
 }
 
 // ServiceSupplyPointURI is a typed URI for a service supply point.

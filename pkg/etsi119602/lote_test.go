@@ -29,7 +29,7 @@ func testLoTE() *ListOfTrustedEntities {
 				},
 				TrustedEntityServices: []TrustedEntityService{{
 					ServiceInformation: ServiceInformation{
-						ServiceName:            NameSet{{Lang: "en", Value: "Example Issuer"}},
+						ServiceName: NameSet{{Lang: "en", Value: "Example Issuer"}},
 						ServiceDigitalIdentity: ServiceDigitalIdentity{
 							PublicKeyValues: []map[string]any{
 								{"kty": "EC", "crv": "P-256", "x": "f83OJ3D2xF1Bg8vub9tLe1gHMzV76e8Tus9uPHvRVEU", "y": "x_FEzRu9m36HLN_tue659LNpXW6pCyStikYjKIWI5a0"},
@@ -96,8 +96,8 @@ func TestNameSet_Get(t *testing.T) {
 
 	assert.Equal(t, "English", ns.Get("en", ""))
 	assert.Equal(t, "Svenska", ns.Get("sv", ""))
-	assert.Equal(t, "English", ns.Get("de", ""))     // fallback to first
-	assert.Equal(t, "", NameSet(nil).Get("en", ""))   // nil set
+	assert.Equal(t, "English", ns.Get("de", ""))    // fallback to first
+	assert.Equal(t, "", NameSet(nil).Get("en", "")) // nil set
 }
 
 func TestLoTE_JSONFieldNames(t *testing.T) {
@@ -155,10 +155,10 @@ func TestLoTE_WithPointers(t *testing.T) {
 				{
 					LoTELocation: "https://trust.example.se/pid.json",
 					LoTEQualifiers: []LoTEQualifier{{
-						LoTEType:                 LoTETypePIDProviders,
-						SchemeOperatorName:       NameSet{{Lang: "en", Value: "Swedish Authority"}},
-						SchemeTerritory:          "SE",
-						MimeType:                 "application/json",
+						LoTEType:           LoTETypePIDProviders,
+						SchemeOperatorName: NameSet{{Lang: "en", Value: "Swedish Authority"}},
+						SchemeTerritory:    "SE",
+						MimeType:           "application/json",
 					}},
 				},
 			},

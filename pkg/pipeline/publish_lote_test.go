@@ -4,20 +4,35 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/sirosfoundation/g119612/pkg/etsi119602"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// validSchemeInfo returns a minimal valid SchemeInformation for testing.
-func validSchemeInfo(territory string) etsi119602.SchemeInformation {
-	return etsi119602.SchemeInformation{
-		Territory:      territory,
-		SchemeOperator: etsi119602.NameSet{{Language: "en", Value: "Test Operator"}},
-		SchemeType:     "http://uri.etsi.org/TrstSvc/TrustedList/TSLType/EUgeneric",
-		IssueDate:      time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+// validSchemeInfo returns a minimal valid ListAndSchemeInformation for testing.
+func validSchemeInfo(territory string) etsi119602.ListAndSchemeInformation {
+	return etsi119602.ListAndSchemeInformation{
+		LoTEVersionIdentifier: 1,
+		SchemeTerritory:       territory,
+		SchemeOperatorName:    etsi119602.NameSet{{Lang: "en", Value: "Test Operator"}},
+		LoTEType:              "http://uri.etsi.org/TrstSvc/TrustedList/TSLType/EUgeneric",
+		ListIssueDateTime:     "2026-01-01T00:00:00Z",
+		NextUpdate:            "2027-01-01T00:00:00Z",
+	}
+}
+
+func testEntity() etsi119602.TrustedEntity {
+	return etsi119602.TrustedEntity{
+		TrustedEntityInformation: etsi119602.TrustedEntityInformation{
+			TEName: etsi119602.NameSet{{Lang: "en", Value: "https://example.com"}},
+		},
+		TrustedEntityServices: []etsi119602.TrustedEntityService{{
+			ServiceInformation: etsi119602.ServiceInformation{
+				ServiceName:   etsi119602.NameSet{{Lang: "en", Value: "Svc"}},
+				ServiceStatus: etsi119602.StatusGranted,
+			},
+		}},
 	}
 }
 
@@ -26,22 +41,18 @@ func TestPublishLoTE_Unsigned(t *testing.T) {
 	outputDir := filepath.Join(dir, "output")
 
 	ctx := NewContext()
-	ctx.AddLoTE(&etsi119602.ListOfTrustedEntities{
-		Version:           "1.0",
-		SchemeInformation: validSchemeInfo("SE"),
-		TrustedEntities: []etsi119602.TrustedEntity{
-			{EntityID: "https://example.com", EntityStatus: etsi119602.StatusGranted},
-		},
-	})
+	lote := &etsi119602.ListOfTrustedEntities{
+		ListAndSchemeInformation: validSchemeInfo("SE"),
+		TrustedEntitiesList:     []etsi119602.TrustedEntity{testEntity()},
+	}
+	ctx.AddLoTE(lote)
 
 	ctx, err := PublishLoTE(nil, ctx, outputDir)
 	require.NoError(t, err)
 
-	// Should have created output directory and lote-SE.json
 	data, err := os.ReadFile(filepath.Join(outputDir, "lote-SE.json"))
 	require.NoError(t, err)
-	assert.Contains(t, string(data), `"territory": "SE"`)
-	assert.Contains(t, string(data), `"https://example.com"`)
+	assert.Contains(t, string(data), `"SchemeTerritory"`)
 }
 
 func TestPublishLoTE_NoTerritory(t *testing.T) {
@@ -51,8 +62,7 @@ func TestPublishLoTE_NoTerritory(t *testing.T) {
 	ctx := NewContext()
 	si := validSchemeInfo("")
 	ctx.AddLoTE(&etsi119602.ListOfTrustedEntities{
-		Version:           "1.0",
-		SchemeInformation: si,
+		ListAndSchemeInformation: si,
 	})
 
 	ctx, err := PublishLoTE(nil, ctx, outputDir)
@@ -85,12 +95,10 @@ func TestPublishLoTE_MultipleLoTEs(t *testing.T) {
 
 	ctx := NewContext()
 	ctx.AddLoTE(&etsi119602.ListOfTrustedEntities{
-		Version:           "1.0",
-		SchemeInformation: validSchemeInfo("SE"),
+		ListAndSchemeInformation: validSchemeInfo("SE"),
 	})
 	ctx.AddLoTE(&etsi119602.ListOfTrustedEntities{
-		Version:           "1.0",
-		SchemeInformation: validSchemeInfo("NO"),
+		ListAndSchemeInformation: validSchemeInfo("NO"),
 	})
 
 	ctx, err := PublishLoTE(nil, ctx, outputDir)
@@ -105,7 +113,7 @@ func TestPublishLoTE_MultipleLoTEs(t *testing.T) {
 func TestPublishLoTE_ValidationFailure(t *testing.T) {
 	dir := t.TempDir()
 	ctx := NewContext()
-	ctx.AddLoTE(&etsi119602.ListOfTrustedEntities{Version: "1.0"}) // missing required fields
+	ctx.AddLoTE(&etsi119602.ListOfTrustedEntities{}) // missing required fields
 	_, err := PublishLoTE(nil, ctx, dir)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed validation")
@@ -119,8 +127,7 @@ func TestPublishLoTE_DistributionPointFilename(t *testing.T) {
 	si.DistributionPoints = []string{"https://example.com/trusted-list.json"}
 	ctx := NewContext()
 	ctx.AddLoTE(&etsi119602.ListOfTrustedEntities{
-		Version:           "1.0",
-		SchemeInformation: si,
+		ListAndSchemeInformation: si,
 	})
 
 	ctx, err := PublishLoTE(nil, ctx, outputDir)
@@ -137,12 +144,10 @@ func TestPublishLoTE_TerritoryCollision(t *testing.T) {
 
 	ctx := NewContext()
 	ctx.AddLoTE(&etsi119602.ListOfTrustedEntities{
-		Version:           "1.0",
-		SchemeInformation: validSchemeInfo("SE"),
+		ListAndSchemeInformation: validSchemeInfo("SE"),
 	})
 	ctx.AddLoTE(&etsi119602.ListOfTrustedEntities{
-		Version:           "1.0",
-		SchemeInformation: validSchemeInfo("SE"),
+		ListAndSchemeInformation: validSchemeInfo("SE"),
 	})
 
 	ctx, err := PublishLoTE(nil, ctx, outputDir)

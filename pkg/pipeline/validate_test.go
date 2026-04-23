@@ -2,26 +2,61 @@ package pipeline
 
 import (
 	"testing"
-	"time"
 
 	"github.com/sirosfoundation/g119612/pkg/etsi119602"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
+func validLoTE(territory string) *etsi119602.ListOfTrustedEntities {
+	return &etsi119602.ListOfTrustedEntities{
+		ListAndSchemeInformation: etsi119602.ListAndSchemeInformation{
+			LoTEVersionIdentifier: 1,
+			SchemeOperatorName:    etsi119602.NameSet{{Lang: "en", Value: "Test"}},
+			LoTEType:              "http://example.com/type",
+			SchemeTerritory:       territory,
+			ListIssueDateTime:     "2026-01-01T00:00:00Z",
+			NextUpdate:            "2027-01-01T00:00:00Z",
+		},
+	}
+}
+
+func validLoTEWithEntity() *etsi119602.ListOfTrustedEntities {
+	lote := validLoTE("SE")
+	lote.TrustedEntitiesList = []etsi119602.TrustedEntity{
+		{
+			TrustedEntityInformation: etsi119602.TrustedEntityInformation{
+				TEName: etsi119602.NameSet{{Lang: "en", Value: "Entity"}},
+			},
+			TrustedEntityServices: []etsi119602.TrustedEntityService{{
+				ServiceInformation: etsi119602.ServiceInformation{
+					ServiceName:   etsi119602.NameSet{{Lang: "en", Value: "Svc"}},
+					ServiceStatus: etsi119602.StatusGranted,
+				},
+			}},
+		},
+	}
+	return lote
+}
+
+func testValidLoTL() *etsi119602.ListOfTrustedLists {
+	return &etsi119602.ListOfTrustedLists{
+		ListAndSchemeInformation: etsi119602.ListAndSchemeInformation{
+			LoTEVersionIdentifier: 1,
+			SchemeOperatorName:    etsi119602.NameSet{{Lang: "en", Value: "EC"}},
+			LoTEType:              etsi119602.LoTLTypeEU,
+			ListIssueDateTime:     "2026-01-01T00:00:00Z",
+			NextUpdate:            "2027-01-01T00:00:00Z",
+			PointersToOtherLoTE: []etsi119602.OtherLoTEPointer{
+				{LoTELocation: "https://example.com/lote.json"},
+			},
+		},
+	}
+}
+
 func TestValidateLoTE_Valid(t *testing.T) {
 	ctx := NewContext()
-	ctx.AddLoTE(&etsi119602.ListOfTrustedEntities{
-		Version: "1.0",
-		SchemeInformation: etsi119602.SchemeInformation{
-			SchemeOperator: etsi119602.NameSet{{Language: "en", Value: "Test"}},
-			SchemeType:     "http://example.com/type",
-			IssueDate:      time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
-		},
-		TrustedEntities: []etsi119602.TrustedEntity{
-			{EntityID: "https://example.com", EntityStatus: etsi119602.StatusGranted},
-		},
-	})
+	ctx.AddLoTE(validLoTEWithEntity())
 
 	ctx, err := ValidateLoTE(nil, ctx)
 	require.NoError(t, err)
@@ -29,14 +64,7 @@ func TestValidateLoTE_Valid(t *testing.T) {
 
 func TestValidateLoTE_Invalid(t *testing.T) {
 	ctx := NewContext()
-	ctx.AddLoTE(&etsi119602.ListOfTrustedEntities{
-		// Missing version
-		SchemeInformation: etsi119602.SchemeInformation{
-			SchemeOperator: etsi119602.NameSet{{Language: "en", Value: "Test"}},
-			SchemeType:     "http://example.com/type",
-			IssueDate:      time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
-		},
-	})
+	ctx.AddLoTE(&etsi119602.ListOfTrustedEntities{})
 
 	_, err := ValidateLoTE(nil, ctx)
 	assert.Error(t, err)
@@ -52,17 +80,8 @@ func TestValidateLoTE_Empty(t *testing.T) {
 
 func TestValidateLoTE_MultipleOneInvalid(t *testing.T) {
 	ctx := NewContext()
-	ctx.AddLoTE(&etsi119602.ListOfTrustedEntities{
-		Version: "1.0",
-		SchemeInformation: etsi119602.SchemeInformation{
-			SchemeOperator: etsi119602.NameSet{{Language: "en", Value: "Valid"}},
-			SchemeType:     "http://example.com/type",
-			IssueDate:      time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
-		},
-	})
-	ctx.AddLoTE(&etsi119602.ListOfTrustedEntities{
-		// Invalid: missing version
-	})
+	ctx.AddLoTE(validLoTE("SE"))
+	ctx.AddLoTE(&etsi119602.ListOfTrustedEntities{})
 
 	_, err := ValidateLoTE(nil, ctx)
 	assert.Error(t, err)
@@ -72,17 +91,7 @@ func TestValidateLoTE_MultipleOneInvalid(t *testing.T) {
 func TestValidateLoTL_Valid(t *testing.T) {
 	ctx := NewContext()
 	ctx.EnsureLoTLs()
-	ctx.AddLoTL(&etsi119602.ListOfTrustedLists{
-		Version: etsi119602.LoTEVersion,
-		SchemeInformation: etsi119602.SchemeInformation{
-			SchemeOperator: etsi119602.NameSet{{Language: "en", Value: "EC"}},
-			SchemeType:     etsi119602.LoTLTypeEU,
-			IssueDate:      time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
-		},
-		PointersToOtherLoTEs: []etsi119602.LoTEPointer{
-			{Location: "https://example.com/lote.json"},
-		},
-	})
+	ctx.AddLoTL(testValidLoTL())
 
 	ctx, err := ValidateLoTL(nil, ctx)
 	require.NoError(t, err)
@@ -91,9 +100,7 @@ func TestValidateLoTL_Valid(t *testing.T) {
 func TestValidateLoTL_Invalid(t *testing.T) {
 	ctx := NewContext()
 	ctx.EnsureLoTLs()
-	ctx.AddLoTL(&etsi119602.ListOfTrustedLists{
-		// Missing version
-	})
+	ctx.AddLoTL(&etsi119602.ListOfTrustedLists{})
 
 	_, err := ValidateLoTL(nil, ctx)
 	assert.Error(t, err)
@@ -109,29 +116,9 @@ func TestValidateLoTL_Empty(t *testing.T) {
 
 func TestValidate_Mixed(t *testing.T) {
 	ctx := NewContext()
-	ctx.AddLoTE(&etsi119602.ListOfTrustedEntities{
-		Version: "1.0",
-		SchemeInformation: etsi119602.SchemeInformation{
-			SchemeOperator: etsi119602.NameSet{{Language: "en", Value: "Test"}},
-			SchemeType:     "http://example.com/type",
-			IssueDate:      time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
-		},
-		TrustedEntities: []etsi119602.TrustedEntity{
-			{EntityID: "https://example.com", EntityStatus: etsi119602.StatusGranted},
-		},
-	})
+	ctx.AddLoTE(validLoTEWithEntity())
 	ctx.EnsureLoTLs()
-	ctx.AddLoTL(&etsi119602.ListOfTrustedLists{
-		Version: etsi119602.LoTEVersion,
-		SchemeInformation: etsi119602.SchemeInformation{
-			SchemeOperator: etsi119602.NameSet{{Language: "en", Value: "EC"}},
-			SchemeType:     etsi119602.LoTLTypeEU,
-			IssueDate:      time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
-		},
-		PointersToOtherLoTEs: []etsi119602.LoTEPointer{
-			{Location: "https://example.com/lote.json"},
-		},
-	})
+	ctx.AddLoTL(testValidLoTL())
 
 	ctx, err := Validate(nil, ctx)
 	require.NoError(t, err)

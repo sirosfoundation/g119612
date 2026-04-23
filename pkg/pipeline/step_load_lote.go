@@ -100,16 +100,16 @@ func LoadLoTE(pl *Pipeline, ctx *Context, args ...string) (*Context, error) {
 	}
 
 	// Auto-classify: LoTL scheme types go to the LoTLs stack, others to LoTEs
-	if etsi119602.IsLoTLSchemeType(lote.SchemeInformation.SchemeType) {
-		lotl := etsi119602.LoTLFromLoTE(lote)
+	if etsi119602.IsLoTLSchemeType(lote.ListAndSchemeInformation.LoTEType) {
+		lotl := (*etsi119602.ListOfTrustedLists)(lote)
 		ctx.EnsureLoTLs()
 		ctx.LoTLs.Push(lotl)
 
 		if pl != nil && pl.Logger != nil {
 			pl.Logger.Info("Loaded LoTL",
 				logging.F("source", location),
-				logging.F("pointers", len(lotl.PointersToOtherLoTEs)),
-				logging.F("territory", lotl.SchemeInformation.Territory))
+				logging.F("pointers", len(lotl.ListAndSchemeInformation.PointersToOtherLoTE)),
+				logging.F("territory", lotl.ListAndSchemeInformation.SchemeTerritory))
 		}
 	} else {
 		ctx.AddLoTE(lote)
@@ -117,8 +117,8 @@ func LoadLoTE(pl *Pipeline, ctx *Context, args ...string) (*Context, error) {
 		if pl != nil && pl.Logger != nil {
 			pl.Logger.Info("Loaded LoTE",
 				logging.F("source", location),
-				logging.F("entities", len(lote.TrustedEntities)),
-				logging.F("territory", lote.SchemeInformation.Territory))
+				logging.F("entities", len(lote.TrustedEntitiesList)),
+				logging.F("territory", lote.ListAndSchemeInformation.SchemeTerritory))
 		}
 	}
 
@@ -173,7 +173,7 @@ func IncrementLoTESequence(pl *Pipeline, ctx *Context, args ...string) (*Context
 
 	lotes := ctx.LoTEs.ToSlice()
 	for _, lote := range lotes {
-		lote.SchemeInformation.SequenceNumber++
+		lote.ListAndSchemeInformation.LoTESequenceNumber++
 	}
 
 	if pl != nil && pl.Logger != nil {
