@@ -87,6 +87,19 @@ func TestXML_LOTETag(t *testing.T) {
 }
 
 func TestXML_ParseIDUnion(t *testing.T) {
+	// The IDUnion XML has several non-conformances with the ETSI TS 119 602-1 XSD:
+	// - Wrong root element: <TrustedEntitiesList> instead of <ListOfTrustedEntities>
+	// - Root element not in the LoTE namespace
+	// - DigitalId elements contain X509Certificate + empty X509SubjectName + empty X509SKI
+	//   simultaneously, violating xsd:choice (only one should be present)
+	// - Empty LOTETag attribute (required per XSD)
+	// - Name elements wrap text in <NonEmptyNormalizedString> child elements
+	//   (should be simple content per XSD)
+	// - Empty <StreetAddress/> and <URI/> elements (violate minLength=1)
+	// - Invalid URIs: "https://htpps://www.very-good-wallet.com"
+	// - Two ds:Signature elements (XSD allows at most one)
+	// - First signature has empty <Object/> elements (broken XAdES)
+	// Despite these issues, our parser should still be able to extract the data.
 	data, err := os.ReadFile("testdata/idunion_lote.xml")
 	require.NoError(t, err)
 
@@ -95,6 +108,8 @@ func TestXML_ParseIDUnion(t *testing.T) {
 
 	assert.NotEmpty(t, lote.ListAndSchemeInformation.SchemeOperatorName)
 	assert.NotEmpty(t, lote.TrustedEntitiesList)
+	assert.Equal(t, LoTETypeWalletProviders, lote.ListAndSchemeInformation.LoTEType)
+	assert.GreaterOrEqual(t, len(lote.TrustedEntitiesList), 4) // At least 4 entities
 }
 
 func TestXML_LoTLRoundTrip(t *testing.T) {
