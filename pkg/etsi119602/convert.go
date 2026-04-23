@@ -7,48 +7,29 @@ import (
 	"github.com/sirosfoundation/g119612/pkg/etsi119612"
 )
 
-// ServiceStatusHistory records a historical status change for an entity.
-type ServiceStatusHistory struct {
-	// ServiceType is the type identifier at the time of this status.
-	ServiceType string `json:"serviceType,omitempty"`
-
-	// ServiceName is the service name at the time of this status.
-	ServiceName NameSet `json:"serviceName,omitempty"`
-
-	// ServiceStatus is the status value.
-	ServiceStatus string `json:"serviceStatus"`
-
-	// StatusStartingTime is when this status became effective.
-	StatusStartingTime *time.Time `json:"statusStartingTime,omitempty"`
-}
-
-// FromTSL converts a TS 119 612 TrustStatusListType to a TS 119 602 ListOfTrustedEntities.
+// FromTSL converts a TS 119 612 TrustStatusListType to a TS 119 602-1 ListOfTrustedEntities.
 // This allows existing XML TSLs to be represented in the LoTE JSON format.
 func FromTSL(tsl *etsi119612.TSL) *ListOfTrustedEntities {
 	lote := &ListOfTrustedEntities{
-		Version: LoTEVersion,
+		ListAndSchemeInformation: ListAndSchemeInformation{
+			LoTEVersionIdentifier: 1,
+		},
 	}
 
 	if tsl.StatusList.TslSchemeInformation != nil {
 		si := tsl.StatusList.TslSchemeInformation
-		lote.SchemeInformation = SchemeInformation{
-			Territory:                   si.TslSchemeTerritory,
-			SchemeOperator:              internationalNamesToNameSet(si.TslSchemeOperatorName),
-			SchemeName:                  internationalNamesToNameSet(si.TslSchemeName),
-			SchemeType:                  si.TslTSLType,
-			SequenceNumber:              si.TSLSequenceNumber,
-			StatusDeterminationApproach: si.StatusDeterminationApproach,
-		}
+		lote.ListAndSchemeInformation.SchemeTerritory = si.TslSchemeTerritory
+		lote.ListAndSchemeInformation.SchemeOperatorName = internationalNamesToNameSet(si.TslSchemeOperatorName)
+		lote.ListAndSchemeInformation.SchemeName = internationalNamesToNameSet(si.TslSchemeName)
+		lote.ListAndSchemeInformation.LoTEType = si.TslTSLType
+		lote.ListAndSchemeInformation.LoTESequenceNumber = si.TSLSequenceNumber
+		lote.ListAndSchemeInformation.StatusDeterminationApproach = si.StatusDeterminationApproach
 
 		if si.ListIssueDateTime != "" {
-			if t, err := time.Parse(time.RFC3339, si.ListIssueDateTime); err == nil {
-				lote.SchemeInformation.IssueDate = t
-			}
+			lote.ListAndSchemeInformation.ListIssueDateTime = si.ListIssueDateTime
 		}
 		if si.TslNextUpdate != nil && si.TslNextUpdate.DateTime != "" {
-			if t, err := time.Parse(time.RFC3339, si.TslNextUpdate.DateTime); err == nil {
-				lote.SchemeInformation.NextUpdate = &t
-			}
+			lote.ListAndSchemeInformation.NextUpdate = si.TslNextUpdate.DateTime
 		}
 		if si.TslSchemeInformationURI != nil {
 			for _, uri := range si.TslSchemeInformationURI.URI {
@@ -56,28 +37,24 @@ func FromTSL(tsl *etsi119612.TSL) *ListOfTrustedEntities {
 				if uri.XmlLangAttr != nil {
 					lang = string(*uri.XmlLangAttr)
 				}
-				lote.SchemeInformation.SchemeInformationURI = append(
-					lote.SchemeInformation.SchemeInformationURI,
-					LangURI{Language: lang, URI: uri.Value},
+				lote.ListAndSchemeInformation.SchemeInformationURI = append(
+					lote.ListAndSchemeInformation.SchemeInformationURI,
+					NonEmptyMultiLangURI{Lang: lang, URIValue: uri.Value},
 				)
 			}
 		}
 		if si.TslDistributionPoints != nil {
-			lote.SchemeInformation.DistributionPoints = si.TslDistributionPoints.URI
+			lote.ListAndSchemeInformation.DistributionPoints = si.TslDistributionPoints.URI
 		}
 		if si.TslPolicyOrLegalNotice != nil {
 			for _, notice := range si.TslPolicyOrLegalNotice.TSLLegalNotice {
-				lang := ""
-				if notice.XmlLangAttr != nil {
-					lang = string(*notice.XmlLangAttr)
-				}
 				val := ""
 				if notice.NonEmptyString != nil {
 					val = string(*notice.NonEmptyString)
 				}
-				lote.SchemeInformation.PolicyOrLegalNotice = append(
-					lote.SchemeInformation.PolicyOrLegalNotice,
-					LangString{Language: lang, Value: val},
+				lote.ListAndSchemeInformation.PolicyOrLegalNotice = append(
+					lote.ListAndSchemeInformation.PolicyOrLegalNotice,
+					PolicyOrLegalNoticeItem{LoTELegalNotice: val},
 				)
 			}
 		}
@@ -85,29 +62,8 @@ func FromTSL(tsl *etsi119612.TSL) *ListOfTrustedEntities {
 		// Convert pointers to other TSLs
 		if si.TslPointersToOtherTSL != nil {
 			for _, ptr := range si.TslPointersToOtherTSL.TslOtherTSLPointer {
-				lotePtr := LoTEPointer{
-					Location: ptr.TSLLocation,
-				}
-				// Extract territory and additional info from AdditionalInformation
-				if ptr.TslAdditionalInformation != nil {
-					addlInfo := make(map[string]any)
-					if len(ptr.TslAdditionalInformation.TextualInformation) > 0 {
-						var texts []map[string]string
-						for _, txt := range ptr.TslAdditionalInformation.TextualInformation {
-							entry := map[string]string{}
-							if txt.XmlLangAttr != nil {
-								entry["language"] = string(*txt.XmlLangAttr)
-							}
-							if txt.NonEmptyString != nil {
-								entry["value"] = string(*txt.NonEmptyString)
-							}
-							texts = append(texts, entry)
-						}
-						addlInfo["textualInformation"] = texts
-					}
-					if len(addlInfo) > 0 {
-						lotePtr.AdditionalInformation = addlInfo
-					}
+				lotePtr := OtherLoTEPointer{
+					LoTELocation: ptr.TSLLocation,
 				}
 				// Extract signer identity from pointer
 				if ptr.TslServiceDigitalIdentities != nil {
@@ -115,17 +71,20 @@ func FromTSL(tsl *etsi119612.TSL) *ListOfTrustedEntities {
 						if sdil == nil {
 							continue
 						}
+						sdi := ServiceDigitalIdentity{}
 						for _, did := range sdil.DigitalId {
 							if did.X509Certificate != "" {
-								lotePtr.DigitalIdentities = append(lotePtr.DigitalIdentities, DigitalIdentity{
-									Type:            "x509",
-									X509Certificate: did.X509Certificate,
-								})
+								sdi.X509Certificates = append(sdi.X509Certificates, PKIOb{Val: did.X509Certificate})
 							}
+						}
+						if len(sdi.X509Certificates) > 0 {
+							lotePtr.ServiceDigitalIdentities = append(lotePtr.ServiceDigitalIdentities, sdi)
 						}
 					}
 				}
-				lote.PointersToOtherLoTEs = append(lote.PointersToOtherLoTEs, lotePtr)
+				lote.ListAndSchemeInformation.PointersToOtherLoTE = append(
+					lote.ListAndSchemeInformation.PointersToOtherLoTE, lotePtr,
+				)
 			}
 		}
 	}
@@ -138,35 +97,13 @@ func FromTSL(tsl *etsi119612.TSL) *ListOfTrustedEntities {
 				continue
 			}
 
-			// Extract provider-level metadata for all entities from this TSP
+			// Extract provider-level metadata
 			var providerName NameSet
-			var providerURIs []LangURI
-			var providerExtensions map[string]any
+			var providerURIs []NonEmptyMultiLangURI
 
 			if tsp.TslTSPInformation != nil {
 				providerName = internationalNamesToNameSet(tsp.TslTSPInformation.TSPName)
 				providerURIs = urisFromInternational(tsp.TslTSPInformation.TSPInformationURI)
-
-				// Convert address info to extensions
-				if tsp.TslTSPInformation.TSPAddress != nil {
-					addrExt := convertAddress(tsp.TslTSPInformation.TSPAddress)
-					if len(addrExt) > 0 {
-						providerExtensions = map[string]any{
-							"tsp_address": addrExt,
-						}
-					}
-				}
-
-				// Include trade name if present
-				if tsp.TslTSPInformation.TSPTradeName != nil {
-					tradeName := internationalNamesToNameSet(tsp.TslTSPInformation.TSPTradeName)
-					if len(tradeName) > 0 {
-						if providerExtensions == nil {
-							providerExtensions = make(map[string]any)
-						}
-						providerExtensions["tsp_trade_name"] = tradeName
-					}
-				}
 			}
 
 			svcIndex := 0
@@ -174,96 +111,83 @@ func FromTSL(tsl *etsi119612.TSL) *ListOfTrustedEntities {
 				if svc.TslServiceInformation == nil {
 					continue
 				}
-				si := svc.TslServiceInformation
+				tslSI := svc.TslServiceInformation
 
-				// Build unique entity ID: serviceType + tsp index + svc index
-				entityID := fmt.Sprintf("%s#tsp%d-svc%d", si.TslServiceTypeIdentifier, tspIndex, svcIndex)
+				entityID := fmt.Sprintf("%s#tsp%d-svc%d", tslSI.TslServiceTypeIdentifier, tspIndex, svcIndex)
 
-				entity := TrustedEntity{
-					EntityID:     entityID,
-					EntityName:   internationalNamesToNameSet(si.ServiceName),
-					EntityType:   si.TslServiceTypeIdentifier,
-					EntityStatus: si.TslServiceStatus,
+				// Build entity name from service name, falling back to provider name
+				entityName := internationalNamesToNameSet(tslSI.ServiceName)
+				if len(entityName) == 0 {
+					entityName = providerName
 				}
 
-				if si.StatusStartingTime != "" {
-					if t, err := time.Parse(time.RFC3339, si.StatusStartingTime); err == nil {
-						entity.StatusStartingTime = &t
-					}
-				}
-
-				// Convert digital identities
-				if si.TslServiceDigitalIdentity != nil {
-					for _, did := range si.TslServiceDigitalIdentity.DigitalId {
+				// Build digital identity
+				sdi := ServiceDigitalIdentity{}
+				if tslSI.TslServiceDigitalIdentity != nil {
+					for _, did := range tslSI.TslServiceDigitalIdentity.DigitalId {
 						if did.X509Certificate != "" {
-							entity.DigitalIdentities = append(entity.DigitalIdentities, DigitalIdentity{
-								Type:            "x509",
-								X509Certificate: did.X509Certificate,
-							})
+							sdi.X509Certificates = append(sdi.X509Certificates, PKIOb{Val: did.X509Certificate})
 						}
 						if did.X509SubjectName != "" {
-							entity.DigitalIdentities = append(entity.DigitalIdentities, DigitalIdentity{
-								Type:            "x509_subject_name",
-								X509SubjectName: did.X509SubjectName,
-							})
+							sdi.X509SubjectNames = append(sdi.X509SubjectNames, did.X509SubjectName)
 						}
 					}
 				}
 
-				// Provider information URIs
-				for _, uri := range providerURIs {
-					entity.InformationURIs = append(entity.InformationURIs, uri)
+				// Build information URIs
+				var infoURIs []NonEmptyMultiLangURI
+				infoURIs = append(infoURIs, NonEmptyMultiLangURI{Lang: "en", URIValue: entityID})
+				infoURIs = append(infoURIs, providerURIs...)
+
+				entity := TrustedEntity{
+					TrustedEntityInformation: TrustedEntityInformation{
+						TEName:           entityName,
+						TEInformationURI: infoURIs,
+					},
+					TrustedEntityServices: []TrustedEntityService{{
+						ServiceInformation: ServiceInformation{
+							ServiceName:            entityName,
+							ServiceDigitalIdentity: sdi,
+							ServiceTypeIdentifier:  tslSI.TslServiceTypeIdentifier,
+							ServiceStatus:          tslSI.TslServiceStatus,
+							StatusStartingTime:     tslSI.StatusStartingTime,
+						},
+					}},
 				}
 
-				// Build extensions from provider data and service history
-				ext := make(map[string]any)
-
-				// Include provider name in extensions
-				if len(providerName) > 0 {
-					ext["tsp_name"] = providerName
-				}
-
-				// Copy provider-level extensions
-				for k, v := range providerExtensions {
-					ext[k] = v
+				// Convert service supply points
+				if tslSI.TslServiceSupplyPoints != nil && tslSI.TslServiceSupplyPoints.ServiceSupplyPoint != nil {
+					entity.TrustedEntityServices[0].ServiceInformation.ServiceSupplyPoints = append(
+						entity.TrustedEntityServices[0].ServiceInformation.ServiceSupplyPoints,
+						ServiceSupplyPointURI{URIValue: tslSI.TslServiceSupplyPoints.ServiceSupplyPoint.Value},
+					)
 				}
 
 				// Convert service history
 				if svc.TslServiceHistory != nil {
-					var history []ServiceStatusHistory
 					for _, hist := range svc.TslServiceHistory.TslServiceHistoryInstance {
-						entry := ServiceStatusHistory{
-							ServiceType:   hist.TslServiceTypeIdentifier,
-							ServiceName:   internationalNamesToNameSet(hist.ServiceName),
-							ServiceStatus: hist.TslServiceStatus,
-						}
-						if hist.StatusStartingTime != "" {
-							if t, err := time.Parse(time.RFC3339, hist.StatusStartingTime); err == nil {
-								entry.StatusStartingTime = &t
+						histSdi := ServiceDigitalIdentity{}
+						if hist.TslServiceDigitalIdentity != nil {
+							for _, did := range hist.TslServiceDigitalIdentity.DigitalId {
+								if did.X509Certificate != "" {
+									histSdi.X509Certificates = append(histSdi.X509Certificates, PKIOb{Val: did.X509Certificate})
+								}
 							}
 						}
-						history = append(history, entry)
+						entity.TrustedEntityServices[0].ServiceHistory = append(
+							entity.TrustedEntityServices[0].ServiceHistory,
+							ServiceHistoryInstance{
+								ServiceName:            internationalNamesToNameSet(hist.ServiceName),
+								ServiceDigitalIdentity: histSdi,
+								ServiceStatus:          hist.TslServiceStatus,
+								StatusStartingTime:     hist.StatusStartingTime,
+								ServiceTypeIdentifier:  hist.TslServiceTypeIdentifier,
+							},
+						)
 					}
-					if len(history) > 0 {
-						ext["service_history"] = history
-					}
 				}
 
-				// Convert service supply points
-				if si.TslServiceSupplyPoints != nil && si.TslServiceSupplyPoints.ServiceSupplyPoint != nil {
-					entity.Services = append(entity.Services, EntityService{
-						ServiceType:         si.TslServiceTypeIdentifier,
-						ServiceName:         internationalNamesToNameSet(si.ServiceName),
-						ServiceStatus:       si.TslServiceStatus,
-						ServiceSupplyPoints: []string{si.TslServiceSupplyPoints.ServiceSupplyPoint.Value},
-					})
-				}
-
-				if len(ext) > 0 {
-					entity.Extensions = ext
-				}
-
-				lote.TrustedEntities = append(lote.TrustedEntities, entity)
+				lote.TrustedEntitiesList = append(lote.TrustedEntitiesList, entity)
 				svcIndex++
 			}
 			tspIndex++
@@ -273,45 +197,42 @@ func FromTSL(tsl *etsi119612.TSL) *ListOfTrustedEntities {
 	return lote
 }
 
-// convertAddress converts TSL AddressType to a map for extensions.
-func convertAddress(addr *etsi119612.AddressType) map[string]any {
-	result := make(map[string]any)
+// convertAddress converts TSL AddressType to a TEAddress.
+func convertAddress(addr *etsi119612.AddressType) *TEAddress {
+	if addr == nil {
+		return nil
+	}
+	teAddr := &TEAddress{}
 
-	if addr.TslPostalAddresses != nil && len(addr.TslPostalAddresses.TslPostalAddress) > 0 {
-		var addrs []map[string]string
+	if addr.TslPostalAddresses != nil {
 		for _, pa := range addr.TslPostalAddresses.TslPostalAddress {
-			entry := map[string]string{
-				"streetAddress": pa.StreetAddress,
-				"locality":      pa.Locality,
-				"countryName":   pa.CountryName,
-			}
-			if pa.PostalCode != "" {
-				entry["postalCode"] = pa.PostalCode
+			postalAddr := PostalAddress{
+				StreetAddress: pa.StreetAddress,
+				Locality:      pa.Locality,
+				Country:       pa.CountryName,
+				PostalCode:    pa.PostalCode,
 			}
 			if pa.StateOrProvince != "" {
-				entry["stateOrProvince"] = pa.StateOrProvince
+				postalAddr.StateOrProvince = pa.StateOrProvince
 			}
 			if pa.XmlLangAttr != nil {
-				entry["language"] = string(*pa.XmlLangAttr)
+				postalAddr.Lang = string(*pa.XmlLangAttr)
 			}
-			addrs = append(addrs, entry)
+			teAddr.TEPostalAddress = append(teAddr.TEPostalAddress, postalAddr)
 		}
-		result["postal"] = addrs
 	}
 
-	if addr.TslElectronicAddress != nil && len(addr.TslElectronicAddress.URI) > 0 {
-		var uris []LangURI
+	if addr.TslElectronicAddress != nil {
 		for _, u := range addr.TslElectronicAddress.URI {
 			lang := ""
 			if u.XmlLangAttr != nil {
 				lang = string(*u.XmlLangAttr)
 			}
-			uris = append(uris, LangURI{Language: lang, URI: u.Value})
+			teAddr.TEElectronicAddress = append(teAddr.TEElectronicAddress, NonEmptyMultiLangURI{Lang: lang, URIValue: u.Value})
 		}
-		result["electronic"] = uris
 	}
 
-	return result
+	return teAddr
 }
 
 // internationalNamesToNameSet converts 119 612 InternationalNamesType to a NameSet.
@@ -329,23 +250,31 @@ func internationalNamesToNameSet(names *etsi119612.InternationalNamesType) NameS
 		if name.NonEmptyNormalizedString != nil {
 			val = string(*name.NonEmptyNormalizedString)
 		}
-		ns = append(ns, LangString{Language: lang, Value: val})
+		ns = append(ns, MultiLangString{Lang: lang, Value: val})
 	}
 	return ns
 }
 
-// urisFromInternational converts NonEmptyMultiLangURIListType to LangURI slice.
-func urisFromInternational(uris *etsi119612.NonEmptyMultiLangURIListType) []LangURI {
+// urisFromInternational converts NonEmptyMultiLangURIListType to NonEmptyMultiLangURI slice.
+func urisFromInternational(uris *etsi119612.NonEmptyMultiLangURIListType) []NonEmptyMultiLangURI {
 	if uris == nil {
 		return nil
 	}
-	var result []LangURI
+	var result []NonEmptyMultiLangURI
 	for _, uri := range uris.URI {
 		lang := ""
 		if uri.XmlLangAttr != nil {
 			lang = string(*uri.XmlLangAttr)
 		}
-		result = append(result, LangURI{Language: lang, URI: uri.Value})
+		result = append(result, NonEmptyMultiLangURI{Lang: lang, URIValue: uri.Value})
 	}
 	return result
+}
+
+// timeToString converts a time.Time to RFC3339 string, or empty if zero.
+func timeToString(t time.Time) string {
+	if t.IsZero() {
+		return ""
+	}
+	return t.UTC().Format(time.RFC3339)
 }

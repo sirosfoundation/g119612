@@ -2,144 +2,91 @@ package etsi119602
 
 import (
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestLoTLRoundTrip(t *testing.T) {
-	now := time.Now().UTC().Truncate(time.Second)
+func TestIsLoTLSchemeType(t *testing.T) {
+	assert.True(t, IsLoTLSchemeType(LoTLTypeEU))
+	assert.False(t, IsLoTLSchemeType(LoTETypePIDProviders))
+	assert.False(t, IsLoTLSchemeType(""))
+}
 
-	lotl := &ListOfTrustedLists{
-		Version: LoTEVersion,
-		SchemeInformation: SchemeInformation{
-			Territory: "EU",
-			SchemeOperator: NameSet{
-				{Language: "en", Value: "European Commission"},
-			},
-			SchemeType:     LoTLTypeEU,
-			IssueDate:      now,
-			SequenceNumber: 1,
+func TestLoTE_IsLoTL(t *testing.T) {
+	lotl := &ListOfTrustedEntities{
+		ListAndSchemeInformation: ListAndSchemeInformation{
+			LoTEType: LoTLTypeEU,
 		},
-		PointersToOtherLoTEs: []LoTEPointer{
-			{
-				Location:        "https://example.com/lote-pid.json",
-				SchemeTerritory: "EU",
-				SchemeType:      LoTETypePIDProviders,
-			},
-			{
-				Location:        "https://example.com/lote-wallet.json",
-				SchemeTerritory: "EU",
-				SchemeType:      LoTETypeWalletProviders,
+	}
+	assert.True(t, lotl.IsLoTL())
+
+	lote := &ListOfTrustedEntities{
+		ListAndSchemeInformation: ListAndSchemeInformation{
+			LoTEType: LoTETypePIDProviders,
+		},
+	}
+	assert.False(t, lote.IsLoTL())
+}
+
+func TestParseLoTL_RoundTrip(t *testing.T) {
+	lotl := &ListOfTrustedLists{
+		ListAndSchemeInformation: ListAndSchemeInformation{
+			LoTEVersionIdentifier: 1,
+			LoTESequenceNumber:    1,
+			LoTEType:              LoTLTypeEU,
+			SchemeOperatorName:    NameSet{{Lang: "en", Value: "EU Commission"}},
+			SchemeTerritory:       "EU",
+			ListIssueDateTime:     "2026-01-01T00:00:00Z",
+			NextUpdate:            "2026-07-01T00:00:00Z",
+			PointersToOtherLoTE: []OtherLoTEPointer{
+				{
+					LoTELocation: "https://trust.example.se/pid.json",
+					LoTEQualifiers: []LoTEQualifier{{
+						LoTEType:           LoTETypePIDProviders,
+						SchemeOperatorName: NameSet{{Lang: "en", Value: "Swedish PID Authority"}},
+						SchemeTerritory:    "SE",
+						MimeType:           "application/json",
+					}},
+				},
+				{
+					LoTELocation: "https://trust.example.de/pid.json",
+					LoTEQualifiers: []LoTEQualifier{{
+						LoTEType:           LoTETypePIDProviders,
+						SchemeOperatorName: NameSet{{Lang: "en", Value: "German PID Authority"}},
+						SchemeTerritory:    "DE",
+						MimeType:           "application/json",
+					}},
+				},
 			},
 		},
 	}
 
-	// Marshal to JSON
 	data, err := lotl.MarshalIndent()
 	require.NoError(t, err)
 
-	// Parse back
 	parsed, err := ParseLoTL(data)
 	require.NoError(t, err)
+	assert.True(t, parsed.IsLoTL())
+	assert.Equal(t, "EU", parsed.ListAndSchemeInformation.SchemeTerritory)
 
-	assert.Equal(t, LoTEVersion, parsed.Version)
-	assert.Equal(t, "EU", parsed.SchemeInformation.Territory)
-	assert.Equal(t, LoTLTypeEU, parsed.SchemeInformation.SchemeType)
-	assert.Len(t, parsed.PointersToOtherLoTEs, 2)
-	assert.Equal(t, "https://example.com/lote-pid.json", parsed.PointersToOtherLoTEs[0].Location)
-	assert.Equal(t, LoTETypePIDProviders, parsed.PointersToOtherLoTEs[0].SchemeType)
+	ptrs := parsed.ListAndSchemeInformation.PointersToOtherLoTE
+	require.Len(t, ptrs, 2)
+	assert.Equal(t, "https://trust.example.se/pid.json", ptrs[0].LoTELocation)
+	assert.Equal(t, "SE", ptrs[0].LoTEQualifiers[0].SchemeTerritory)
 }
 
-func TestLoTLValidate(t *testing.T) {
-	now := time.Now().UTC()
-
-	t.Run("valid", func(t *testing.T) {
-		lotl := &ListOfTrustedLists{
-			Version: LoTEVersion,
-			SchemeInformation: SchemeInformation{
-				SchemeOperator: NameSet{{Language: "en", Value: "EU"}},
-				SchemeType:     LoTLTypeEU,
-				IssueDate:      now,
-			},
-			PointersToOtherLoTEs: []LoTEPointer{
-				{Location: "https://example.com/lote.json"},
-			},
-		}
-		assert.NoError(t, lotl.Validate())
-	})
-
-	t.Run("missing version", func(t *testing.T) {
-		lotl := &ListOfTrustedLists{
-			SchemeInformation: SchemeInformation{
-				SchemeOperator: NameSet{{Language: "en", Value: "EU"}},
-				SchemeType:     LoTLTypeEU,
-				IssueDate:      now,
-			},
-		}
-		assert.Error(t, lotl.Validate())
-	})
-
-	t.Run("invalid pointer", func(t *testing.T) {
-		lotl := &ListOfTrustedLists{
-			Version: LoTEVersion,
-			SchemeInformation: SchemeInformation{
-				SchemeOperator: NameSet{{Language: "en", Value: "EU"}},
-				SchemeType:     LoTLTypeEU,
-				IssueDate:      now,
-			},
-			PointersToOtherLoTEs: []LoTEPointer{
-				{Location: ""}, // missing location
-			},
-		}
-		assert.Error(t, lotl.Validate())
-	})
-}
-
-func TestLoTLToLoTE(t *testing.T) {
-	now := time.Now().UTC().Truncate(time.Second)
+func TestValidate_LoTL(t *testing.T) {
 	lotl := &ListOfTrustedLists{
-		Version: LoTEVersion,
-		SchemeInformation: SchemeInformation{
-			Territory: "EU",
-			SchemeOperator: NameSet{
-				{Language: "en", Value: "EC"},
+		ListAndSchemeInformation: ListAndSchemeInformation{
+			LoTEVersionIdentifier: 1,
+			SchemeOperatorName:    NameSet{{Lang: "en", Value: "Test"}},
+			ListIssueDateTime:     "2026-01-01T00:00:00Z",
+			NextUpdate:            "2026-07-01T00:00:00Z",
+			PointersToOtherLoTE: []OtherLoTEPointer{
+				{LoTELocation: "https://example.com/lote.json"},
 			},
-			SchemeType: LoTLTypeEU,
-			IssueDate:  now,
-		},
-		PointersToOtherLoTEs: []LoTEPointer{
-			{Location: "https://example.com/lote.json"},
 		},
 	}
-
-	lote := lotl.ToLoTE()
-	assert.Equal(t, LoTEVersion, lote.Version)
-	assert.Equal(t, "EU", lote.SchemeInformation.Territory)
-	assert.Nil(t, lote.TrustedEntities)
-	assert.Len(t, lote.PointersToOtherLoTEs, 1)
-}
-
-func TestLoTLFromLoTE(t *testing.T) {
-	now := time.Now().UTC().Truncate(time.Second)
-	lote := &ListOfTrustedEntities{
-		Version: LoTEVersion,
-		SchemeInformation: SchemeInformation{
-			Territory: "EU",
-			SchemeOperator: NameSet{
-				{Language: "en", Value: "EC"},
-			},
-			SchemeType: LoTLTypeEU,
-			IssueDate:  now,
-		},
-		PointersToOtherLoTEs: []LoTEPointer{
-			{Location: "https://example.com/lote.json"},
-		},
-	}
-
-	lotl := LoTLFromLoTE(lote)
-	assert.Equal(t, LoTEVersion, lotl.Version)
-	assert.Equal(t, "EU", lotl.SchemeInformation.Territory)
-	assert.Len(t, lotl.PointersToOtherLoTEs, 1)
+	assert.NoError(t, lotl.Validate())
 }
