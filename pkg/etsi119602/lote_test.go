@@ -249,3 +249,60 @@ func TestEncodeToFile(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "SE", parsed.ListAndSchemeInformation.SchemeTerritory)
 }
+
+func TestMarshal(t *testing.T) {
+	lote := testLoTE()
+	data, err := lote.Marshal()
+	require.NoError(t, err)
+
+	parsed, err := ParseLoTE(data)
+	require.NoError(t, err)
+	assert.Equal(t, "SE", parsed.ListAndSchemeInformation.SchemeTerritory)
+}
+
+func TestParseMarshalLoTL(t *testing.T) {
+	lotl := &ListOfTrustedLists{
+		ListAndSchemeInformation: ListAndSchemeInformation{
+			LoTEVersionIdentifier: 1,
+			LoTESequenceNumber:    1,
+			LoTEType:              LoTLTypeEU,
+			SchemeOperatorName:    NameSet{{Lang: "en", Value: "EU"}},
+			SchemeTerritory:       "EU",
+			ListIssueDateTime:     "2026-01-01T00:00:00Z",
+			NextUpdate:            "2026-07-01T00:00:00Z",
+		},
+	}
+
+	data, err := lotl.MarshalLoTL()
+	require.NoError(t, err)
+
+	parsed, err := ParseLoTL(data)
+	require.NoError(t, err)
+	assert.Equal(t, "EU", parsed.ListAndSchemeInformation.SchemeTerritory)
+	assert.True(t, parsed.IsLoTL())
+}
+
+func TestParseLoTLFromFile(t *testing.T) {
+	lotl := &ListOfTrustedLists{
+		ListAndSchemeInformation: ListAndSchemeInformation{
+			LoTEVersionIdentifier: 1,
+			LoTESequenceNumber:    1,
+			LoTEType:              LoTLTypeEU,
+			SchemeOperatorName:    NameSet{{Lang: "en", Value: "EU"}},
+			SchemeTerritory:       "EU",
+			ListIssueDateTime:     "2026-01-01T00:00:00Z",
+			NextUpdate:            "2026-07-01T00:00:00Z",
+		},
+	}
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "lotl.json")
+	data, err := lotl.MarshalLoTLIndent()
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(path, data, 0644))
+
+	parsed, err := ParseLoTLFromFile(path)
+	require.NoError(t, err)
+	assert.Equal(t, "EU", parsed.ListAndSchemeInformation.SchemeTerritory)
+	assert.True(t, parsed.IsLoTL())
+}

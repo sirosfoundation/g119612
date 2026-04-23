@@ -2,6 +2,7 @@ package etsi119602
 
 import (
 	"testing"
+	"time"
 
 	"github.com/sirosfoundation/g119612/pkg/etsi119612"
 	"github.com/stretchr/testify/assert"
@@ -122,4 +123,71 @@ func TestFromTSL_WithPointers(t *testing.T) {
 	assert.Equal(t, "https://example.se/tsl.xml", ptrs[0].LoTELocation)
 	require.Len(t, ptrs[0].ServiceDigitalIdentities, 1)
 	require.Len(t, ptrs[0].ServiceDigitalIdentities[0].X509Certificates, 1)
+}
+
+func TestConvertAddress(t *testing.T) {
+	lang := etsi119612.Lang("en")
+
+	// nil address
+	assert.Nil(t, convertAddress(nil))
+
+	// Address with postal and electronic
+	addr := &etsi119612.AddressType{
+		TslPostalAddresses: &etsi119612.PostalAddressListType{
+			TslPostalAddress: []*etsi119612.PostalAddressType{
+				{
+					XmlLangAttr:     &lang,
+					StreetAddress:   "123 Main St",
+					Locality:        "Stockholm",
+					StateOrProvince: "Stockholm",
+					PostalCode:      "111 22",
+					CountryName:     "SE",
+				},
+			},
+		},
+		TslElectronicAddress: &etsi119612.ElectronicAddressType{
+			URI: []*etsi119612.NonEmptyMultiLangURIType{
+				{XmlLangAttr: &lang, Value: "https://example.se"},
+			},
+		},
+	}
+
+	result := convertAddress(addr)
+	require.NotNil(t, result)
+	require.Len(t, result.TEPostalAddress, 1)
+	assert.Equal(t, "123 Main St", result.TEPostalAddress[0].StreetAddress)
+	assert.Equal(t, "Stockholm", result.TEPostalAddress[0].Locality)
+	assert.Equal(t, "Stockholm", result.TEPostalAddress[0].StateOrProvince)
+	assert.Equal(t, "111 22", result.TEPostalAddress[0].PostalCode)
+	assert.Equal(t, "SE", result.TEPostalAddress[0].Country)
+	assert.Equal(t, "en", result.TEPostalAddress[0].Lang)
+
+	require.Len(t, result.TEElectronicAddress, 1)
+	assert.Equal(t, "https://example.se", result.TEElectronicAddress[0].URIValue)
+	assert.Equal(t, "en", result.TEElectronicAddress[0].Lang)
+}
+
+func TestTimeToString(t *testing.T) {
+	assert.Equal(t, "", timeToString(time.Time{}))
+
+	ts := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
+	assert.Equal(t, "2026-01-01T12:00:00Z", timeToString(ts))
+}
+
+func TestURIsFromInternational(t *testing.T) {
+	assert.Nil(t, urisFromInternational(nil))
+
+	lang := etsi119612.Lang("en")
+	uris := &etsi119612.NonEmptyMultiLangURIListType{
+		URI: []*etsi119612.NonEmptyMultiLangURIType{
+			{XmlLangAttr: &lang, Value: "https://example.com"},
+			{Value: "https://example.se"},
+		},
+	}
+	result := urisFromInternational(uris)
+	require.Len(t, result, 2)
+	assert.Equal(t, "en", result[0].Lang)
+	assert.Equal(t, "https://example.com", result[0].URIValue)
+	assert.Equal(t, "", result[1].Lang)
+	assert.Equal(t, "https://example.se", result[1].URIValue)
 }
