@@ -406,11 +406,6 @@ func trustedEntityToXML(e TrustedEntity) *xmltypes.TEType {
 
 	// Build services list
 	if len(e.TrustedEntityServices) > 0 {
-		svcs := &xmltypes.TrustedEntitiesListType{}
-		for _, s := range e.TrustedEntityServices {
-			svcs.LoteTrustedEntity = append(svcs.LoteTrustedEntity, entityServiceToXMLTE(s))
-		}
-		// Use the proper field for services
 		svcList := &xmltypes.TrustedEntityServicesListType{}
 		for _, s := range e.TrustedEntityServices {
 			svcList.LoteTrustedEntityService = append(svcList.LoteTrustedEntityService, entityServiceToXML(s))
@@ -441,10 +436,7 @@ func xmlToTrustedEntity(te *xmltypes.TEType) TrustedEntity {
 
 // --- Service conversion ---
 
-// entityServiceToXMLTE is unused placeholder to avoid compile error from earlier code
-func entityServiceToXMLTE(_ TrustedEntityService) *xmltypes.TEType {
-	return nil
-}
+
 
 func entityServiceToXML(s TrustedEntityService) *xmltypes.TrustedEntityServiceType {
 	svc := &xmltypes.TrustedEntityServiceType{
@@ -529,13 +521,15 @@ func serviceDigitalIdentityToXMLDigitalIdList(sdi ServiceDigitalIdentity) *xmlty
 	x := &xmltypes.DigitalIdentityListType{}
 
 	for _, cert := range sdi.X509Certificates {
+		val := cert.Val
 		x.DigitalId = append(x.DigitalId, &xmltypes.DigitalIdentityType{
-			X509Certificate: &cert.Val,
+			X509Certificate: &val,
 		})
 	}
 	for _, name := range sdi.X509SubjectNames {
+		n := name
 		x.DigitalId = append(x.DigitalId, &xmltypes.DigitalIdentityType{
-			X509SubjectName: &name,
+			X509SubjectName: &n,
 		})
 	}
 	for _, jwk := range sdi.PublicKeyValues {

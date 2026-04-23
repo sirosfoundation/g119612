@@ -228,6 +228,12 @@ func ParseLoTE(data []byte) (*ListOfTrustedEntities, error) {
 	if err := json.Unmarshal(data, &doc); err != nil {
 		return nil, fmt.Errorf("failed to parse LoTE: %w", err)
 	}
+	// Reject inputs missing the required "LoTE" root key
+	if doc.LoTE.ListAndSchemeInformation.SchemeOperatorName == nil &&
+		doc.LoTE.ListAndSchemeInformation.LoTEVersionIdentifier == 0 &&
+		len(doc.LoTE.TrustedEntitiesList) == 0 {
+		return nil, fmt.Errorf("failed to parse LoTE: missing required \"LoTE\" root key")
+	}
 	return &doc.LoTE, nil
 }
 

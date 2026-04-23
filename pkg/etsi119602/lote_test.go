@@ -88,6 +88,21 @@ func TestParseLoTE_FromFile(t *testing.T) {
 	assert.Equal(t, "SE", parsed.ListAndSchemeInformation.SchemeTerritory)
 }
 
+func TestParseLoTE_MissingRootKey(t *testing.T) {
+	// JSON without the required "LoTE" root key
+	_, err := ParseLoTE([]byte(`{"ListAndSchemeInformation": {}}`))
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "missing required")
+
+	// Empty JSON object
+	_, err = ParseLoTE([]byte(`{}`))
+	assert.Error(t, err)
+
+	// Invalid JSON
+	_, err = ParseLoTE([]byte(`not json`))
+	assert.Error(t, err)
+}
+
 func TestNameSet_Get(t *testing.T) {
 	ns := NameSet{
 		{Lang: "en", Value: "English"},
