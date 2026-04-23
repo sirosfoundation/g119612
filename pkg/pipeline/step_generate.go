@@ -446,6 +446,9 @@ func GenerateTSL(pl *Pipeline, ctx *Context, args ...string) (*Context, error) {
 		TSLVersionIdentifier: int(schemeMetadata.SequenceNumber),
 		TslTSLType:           schemeMetadata.Type,
 		ListIssueDateTime:    time.Now().UTC().Format(time.RFC3339),
+		TslNextUpdate: &etsi119612.NextUpdateType{
+			DateTime: time.Now().UTC().Add(180 * 24 * time.Hour).Format(time.RFC3339),
+		},
 		TslSchemeOperatorName: &etsi119612.InternationalNamesType{
 			Name: operatorNames,
 		},
