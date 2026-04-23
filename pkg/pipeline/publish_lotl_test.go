@@ -150,9 +150,7 @@ func TestPublishLoTE_XMLFlag(t *testing.T) {
 	ctx := NewContext()
 	ctx.AddLoTE(&etsi119602.ListOfTrustedEntities{
 		ListAndSchemeInformation: validSchemeInfo("SE"),
-		TrustedEntitiesList: []etsi119602.TrustedEntity{
-			{TrustedEntityInformation: etsi119602.TrustedEntityInformation{TEName: etsi119602.NameSet{{Lang: "en", Value: "https://example.com"}}}, TrustedEntityServices: []etsi119602.TrustedEntityService{{ServiceInformation: etsi119602.ServiceInformation{ServiceName: etsi119602.NameSet{{Lang: "en", Value: "svc"}}, ServiceStatus: etsi119602.StatusGranted}}}},
-		},
+		TrustedEntitiesList:      []etsi119602.TrustedEntity{testEntity()},
 	})
 
 	ctx, err := PublishLoTE(nil, ctx, outputDir, "xml")
@@ -174,9 +172,7 @@ func TestPublishLoTE_XMLOnly(t *testing.T) {
 	ctx := NewContext()
 	ctx.AddLoTE(&etsi119602.ListOfTrustedEntities{
 		ListAndSchemeInformation: validSchemeInfo("SE"),
-		TrustedEntitiesList: []etsi119602.TrustedEntity{
-			{TrustedEntityInformation: etsi119602.TrustedEntityInformation{TEName: etsi119602.NameSet{{Lang: "en", Value: "https://example.com"}}}, TrustedEntityServices: []etsi119602.TrustedEntityService{{ServiceInformation: etsi119602.ServiceInformation{ServiceName: etsi119602.NameSet{{Lang: "en", Value: "svc"}}, ServiceStatus: etsi119602.StatusGranted}}}},
-		},
+		TrustedEntitiesList:      []etsi119602.TrustedEntity{testEntity()},
 	})
 
 	ctx, err := PublishLoTE(nil, ctx, outputDir, "xml-only")

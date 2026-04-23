@@ -27,6 +27,11 @@ func validLoTEWithEntity() *etsi119602.ListOfTrustedEntities {
 		{
 			TrustedEntityInformation: etsi119602.TrustedEntityInformation{
 				TEName: etsi119602.NameSet{{Lang: "en", Value: "Entity"}},
+				TEAddress: &etsi119602.TEAddress{
+					TEPostalAddress:     []etsi119602.PostalAddress{{Lang: "en", StreetAddress: "N/A", Country: "SE"}},
+					TEElectronicAddress: []etsi119602.NonEmptyMultiLangURI{{Lang: "en", URIValue: "https://entity.example.com"}},
+				},
+				TEInformationURI: []etsi119602.NonEmptyMultiLangURI{{Lang: "en", URIValue: "https://entity.example.com"}},
 			},
 			TrustedEntityServices: []etsi119602.TrustedEntityService{{
 				ServiceInformation: etsi119602.ServiceInformation{

@@ -39,6 +39,12 @@ func (te *TrustedEntity) validate() error {
 	if len(te.TrustedEntityInformation.TEName) == 0 {
 		return fmt.Errorf("TrustedEntityInformation.TEName is required")
 	}
+	if te.TrustedEntityInformation.TEAddress == nil {
+		return fmt.Errorf("TrustedEntityInformation.TEAddress is required")
+	}
+	if len(te.TrustedEntityInformation.TEInformationURI) == 0 {
+		return fmt.Errorf("TrustedEntityInformation.TEInformationURI is required")
+	}
 	if len(te.TrustedEntityServices) == 0 {
 		return fmt.Errorf("TrustedEntityServices is required")
 	}

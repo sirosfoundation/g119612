@@ -167,8 +167,8 @@ type TrustedEntity struct {
 type TrustedEntityInformation struct {
 	TEName                  NameSet                `json:"TEName"`
 	TETradeName             NameSet                `json:"TETradeName,omitempty"`
-	TEAddress               *TEAddress             `json:"TEAddress,omitempty"`
-	TEInformationURI        []NonEmptyMultiLangURI `json:"TEInformationURI,omitempty"`
+	TEAddress               *TEAddress             `json:"TEAddress"`
+	TEInformationURI        []NonEmptyMultiLangURI `json:"TEInformationURI"`
 	TEInformationExtensions []json.RawMessage      `json:"TEInformationExtensions,omitempty"`
 }
 

@@ -26,6 +26,10 @@ func testLoTE() *ListOfTrustedEntities {
 				TrustedEntityInformation: TrustedEntityInformation{
 					TEName:           NameSet{{Lang: "en", Value: "Example Issuer"}},
 					TEInformationURI: []NonEmptyMultiLangURI{{Lang: "en", URIValue: "https://issuer.example.com"}},
+					TEAddress: &TEAddress{
+						TEPostalAddress:     []PostalAddress{{Lang: "en", StreetAddress: "N/A", Country: "SE"}},
+						TEElectronicAddress: []NonEmptyMultiLangURI{{Lang: "en", URIValue: "https://issuer.example.com"}},
+					},
 				},
 				TrustedEntityServices: []TrustedEntityService{{
 					ServiceInformation: ServiceInformation{

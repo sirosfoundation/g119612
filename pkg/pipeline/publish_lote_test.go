@@ -25,7 +25,12 @@ func validSchemeInfo(territory string) etsi119602.ListAndSchemeInformation {
 func testEntity() etsi119602.TrustedEntity {
 	return etsi119602.TrustedEntity{
 		TrustedEntityInformation: etsi119602.TrustedEntityInformation{
-			TEName: etsi119602.NameSet{{Lang: "en", Value: "https://example.com"}},
+			TEName:           etsi119602.NameSet{{Lang: "en", Value: "https://example.com"}},
+			TEInformationURI: []etsi119602.NonEmptyMultiLangURI{{Lang: "en", URIValue: "https://example.com"}},
+			TEAddress: &etsi119602.TEAddress{
+				TEPostalAddress:     []etsi119602.PostalAddress{{Lang: "en", StreetAddress: "N/A", Country: "SE"}},
+				TEElectronicAddress: []etsi119602.NonEmptyMultiLangURI{{Lang: "en", URIValue: "https://example.com"}},
+			},
 		},
 		TrustedEntityServices: []etsi119602.TrustedEntityService{{
 			ServiceInformation: etsi119602.ServiceInformation{
