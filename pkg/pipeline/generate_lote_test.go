@@ -32,6 +32,16 @@ sequenceNumber: 1
 entityId: "https://issuer.example.com"
 entityType: "credential-issuer"
 status: "http://uri.etsi.org/TrstSvc/TrustedList/Svcstatus/granted"
+address:
+  postal:
+    streetAddress: "123 Test St"
+    locality: "Stockholm"
+    countryName: "SE"
+  electronic:
+    - "mailto:test@example.com"
+informationURI:
+  - language: en
+    value: "https://issuer.example.com"
 `
 	require.NoError(t, os.WriteFile(filepath.Join(entityDir, "entity.yaml"), []byte(entityYAML), 0644))
 
@@ -52,6 +62,11 @@ status: "http://uri.etsi.org/TrstSvc/TrustedList/Svcstatus/granted"
 	assert.Equal(t, "SE", lote.ListAndSchemeInformation.SchemeTerritory)
 	assert.Len(t, lote.TrustedEntitiesList, 1)
 	assert.Equal(t, "Test Issuer", lote.TrustedEntitiesList[0].TrustedEntityInformation.TEName[0].Value)
+	require.NotNil(t, lote.TrustedEntitiesList[0].TrustedEntityInformation.TEAddress)
+	assert.Equal(t, "SE", lote.TrustedEntitiesList[0].TrustedEntityInformation.TEAddress.TEPostalAddress[0].Country)
+	assert.Equal(t, "123 Test St", lote.TrustedEntitiesList[0].TrustedEntityInformation.TEAddress.TEPostalAddress[0].StreetAddress)
+	require.Len(t, lote.TrustedEntitiesList[0].TrustedEntityInformation.TEInformationURI, 1)
+	assert.Equal(t, "https://issuer.example.com", lote.TrustedEntitiesList[0].TrustedEntityInformation.TEInformationURI[0].URIValue)
 	require.NotEmpty(t, lote.TrustedEntitiesList[0].TrustedEntityServices)
 	assert.NotEmpty(t, lote.TrustedEntitiesList[0].TrustedEntityServices[0].ServiceInformation.ServiceDigitalIdentity.PublicKeyValues)
 }

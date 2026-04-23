@@ -269,7 +269,7 @@ func TestPublishLoTE_LoTEXmlUnsigned(t *testing.T) {
 	ctx := NewContext()
 	ctx.AddLoTE(&etsi119602.ListOfTrustedEntities{
 		ListAndSchemeInformation: validSchemeInfo("DK"),
-		TrustedEntitiesList:     []etsi119602.TrustedEntity{testEntity()},
+		TrustedEntitiesList:      []etsi119602.TrustedEntity{testEntity()},
 	})
 
 	ctx, err := PublishLoTE(nil, ctx, outputDir, "xml")
@@ -291,7 +291,7 @@ func TestPublishLoTE_JadesDisabled(t *testing.T) {
 	ctx := NewContext()
 	ctx.AddLoTE(&etsi119602.ListOfTrustedEntities{
 		ListAndSchemeInformation: validSchemeInfo("IS"),
-		TrustedEntitiesList:     []etsi119602.TrustedEntity{testEntity()},
+		TrustedEntitiesList:      []etsi119602.TrustedEntity{testEntity()},
 	})
 
 	ctx, err := PublishLoTE(nil, ctx, outputDir, certPath, keyPath, "jades:false")

@@ -24,9 +24,11 @@ type LoTLSchemeMetadata struct {
 
 // LoTLPointerMeta represents a pointer entry in the LoTL YAML metadata.
 type LoTLPointerMeta struct {
-	Location        string `yaml:"location"`
-	SchemeTerritory string `yaml:"schemeTerritory,omitempty"`
-	SchemeType      string `yaml:"schemeType,omitempty"`
+	Location             string          `yaml:"location"`
+	SchemeTerritory      string          `yaml:"schemeTerritory,omitempty"`
+	SchemeType           string          `yaml:"schemeType,omitempty"`
+	SchemeOperatorNames  []MultiLangName `yaml:"schemeOperatorNames,omitempty"`
+	MimeType             string          `yaml:"mimeType,omitempty"`
 }
 
 // GenerateLoTL generates a LoTL (List of Trusted Lists) from a YAML metadata file.
@@ -90,11 +92,17 @@ func GenerateLoTL(pl *Pipeline, ctx *Context, args ...string) (*Context, error) 
 
 	// Build pointers from metadata
 	for _, pm := range meta.Pointers {
+		mimeType := pm.MimeType
+		if mimeType == "" {
+			mimeType = "application/json"
+		}
 		lotl.ListAndSchemeInformation.PointersToOtherLoTE = append(lotl.ListAndSchemeInformation.PointersToOtherLoTE, etsi119602.OtherLoTEPointer{
 			LoTELocation: pm.Location,
 			LoTEQualifiers: []etsi119602.LoTEQualifier{{
-				SchemeTerritory: pm.SchemeTerritory,
-				LoTEType:        pm.SchemeType,
+				SchemeTerritory:    pm.SchemeTerritory,
+				LoTEType:           pm.SchemeType,
+				SchemeOperatorName: multiLangToNameSet(pm.SchemeOperatorNames),
+				MimeType:           mimeType,
 			}},
 		})
 	}

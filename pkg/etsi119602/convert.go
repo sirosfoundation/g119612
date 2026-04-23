@@ -100,10 +100,12 @@ func FromTSL(tsl *etsi119612.TSL) *ListOfTrustedEntities {
 			// Extract provider-level metadata
 			var providerName NameSet
 			var providerURIs []NonEmptyMultiLangURI
+			var providerAddress *TEAddress
 
 			if tsp.TslTSPInformation != nil {
 				providerName = internationalNamesToNameSet(tsp.TslTSPInformation.TSPName)
 				providerURIs = urisFromInternational(tsp.TslTSPInformation.TSPInformationURI)
+				providerAddress = convertAddress(tsp.TslTSPInformation.TSPAddress)
 			}
 
 			svcIndex := 0
@@ -142,6 +144,7 @@ func FromTSL(tsl *etsi119612.TSL) *ListOfTrustedEntities {
 				entity := TrustedEntity{
 					TrustedEntityInformation: TrustedEntityInformation{
 						TEName:           entityName,
+						TEAddress:        providerAddress,
 						TEInformationURI: infoURIs,
 					},
 					TrustedEntityServices: []TrustedEntityService{{

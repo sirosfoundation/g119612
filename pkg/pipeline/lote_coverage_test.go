@@ -444,6 +444,21 @@ func writeEntityYAML(t *testing.T, dir, name, entityID, status string) {
 		Names:    []MultiLangName{{Language: "en", Value: name}},
 		EntityID: entityID,
 		Status:   status,
+		Address: &Address{
+			Postal: struct {
+				StreetAddress   string `yaml:"streetAddress"`
+				Locality        string `yaml:"locality"`
+				StateOrProvince string `yaml:"stateOrProvince,omitempty"`
+				PostalCode      string `yaml:"postalCode,omitempty"`
+				CountryName     string `yaml:"countryName"`
+			}{
+				StreetAddress: "Test Street 1",
+				Locality:      "Test City",
+				CountryName:   "SE",
+			},
+			Electronic: []string{"mailto:test@example.com"},
+		},
+		InformationURI: []MultiLangName{{Language: "en", Value: "https://example.com"}},
 	}
 	data, err := yaml.Marshal(meta)
 	require.NoError(t, err)

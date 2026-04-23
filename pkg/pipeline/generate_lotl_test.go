@@ -23,9 +23,13 @@ pointers:
   - location: "https://example.com/lote-pid.json"
     schemeTerritory: EU
     schemeType: "http://uri.etsi.org/19602/LoTEType/EUPIDProvidersList"
+    schemeOperatorNames:
+      - language: en
+        value: "PID Operator"
   - location: "https://example.com/lote-wallet.json"
     schemeTerritory: EU
     schemeType: "http://uri.etsi.org/19602/LoTEType/EUWalletProvidersList"
+    mimeType: "application/xml"
 `
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "lotl.yaml"), []byte(lotlYAML), 0644))
 
@@ -47,7 +51,10 @@ pointers:
 	require.Len(t, lotl.ListAndSchemeInformation.PointersToOtherLoTE, 2)
 	assert.Equal(t, "https://example.com/lote-pid.json", lotl.ListAndSchemeInformation.PointersToOtherLoTE[0].LoTELocation)
 	assert.Equal(t, etsi119602.LoTETypePIDProviders, lotl.ListAndSchemeInformation.PointersToOtherLoTE[0].LoTEQualifiers[0].LoTEType)
+	assert.Equal(t, "PID Operator", lotl.ListAndSchemeInformation.PointersToOtherLoTE[0].LoTEQualifiers[0].SchemeOperatorName.Get("en", ""))
+	assert.Equal(t, "application/json", lotl.ListAndSchemeInformation.PointersToOtherLoTE[0].LoTEQualifiers[0].MimeType) // default
 	assert.Equal(t, "https://example.com/lote-wallet.json", lotl.ListAndSchemeInformation.PointersToOtherLoTE[1].LoTELocation)
+	assert.Equal(t, "application/xml", lotl.ListAndSchemeInformation.PointersToOtherLoTE[1].LoTEQualifiers[0].MimeType) // explicit
 }
 
 func TestGenerateLoTL_MissingArgs(t *testing.T) {

@@ -27,11 +27,13 @@ type LoTESchemeMetadata struct {
 
 // LoTEEntityMetadata represents the YAML structure for a trusted entity.
 type LoTEEntityMetadata struct {
-	Names      []MultiLangName       `yaml:"names"`
-	EntityID   string                `yaml:"entityId"`
-	EntityType string                `yaml:"entityType,omitempty"`
-	Status     string                `yaml:"status"`
-	Services   []LoTEServiceMetadata `yaml:"services,omitempty"`
+	Names          []MultiLangName       `yaml:"names"`
+	EntityID       string                `yaml:"entityId"`
+	EntityType     string                `yaml:"entityType,omitempty"`
+	Status         string                `yaml:"status"`
+	Address        *Address              `yaml:"address,omitempty"`
+	InformationURI []MultiLangName       `yaml:"informationURI,omitempty"`
+	Services       []LoTEServiceMetadata `yaml:"services,omitempty"`
 }
 
 // LoTEServiceMetadata represents a service entry for a LoTE entity.
@@ -155,7 +157,9 @@ func loadLoTEEntity(entityDir string) (*etsi119602.TrustedEntity, error) {
 
 	entity := &etsi119602.TrustedEntity{
 		TrustedEntityInformation: etsi119602.TrustedEntityInformation{
-			TEName: multiLangToNameSet(meta.Names),
+			TEName:           multiLangToNameSet(meta.Names),
+			TEAddress:        addressToTEAddress(meta.Address),
+			TEInformationURI: multiLangToURIs(meta.InformationURI),
 		},
 	}
 
@@ -268,4 +272,37 @@ func parseCertificateFile(data []byte) (*x509.Certificate, error) {
 		return nil, fmt.Errorf("PEM block type is %q, expected CERTIFICATE", block.Type)
 	}
 	return x509.ParseCertificate(block.Bytes)
+}
+
+// addressToTEAddress converts a YAML Address to an ETSI TEAddress.
+func addressToTEAddress(addr *Address) *etsi119602.TEAddress {
+	if addr == nil {
+		return nil
+	}
+	teAddr := &etsi119602.TEAddress{
+		TEPostalAddress: []etsi119602.PostalAddress{{
+			StreetAddress:   addr.Postal.StreetAddress,
+			Locality:        addr.Postal.Locality,
+			StateOrProvince: addr.Postal.StateOrProvince,
+			PostalCode:      addr.Postal.PostalCode,
+			Country:         addr.Postal.CountryName,
+		}},
+	}
+	for _, e := range addr.Electronic {
+		teAddr.TEElectronicAddress = append(teAddr.TEElectronicAddress,
+			etsi119602.NonEmptyMultiLangURI{URIValue: e})
+	}
+	return teAddr
+}
+
+// multiLangToURIs converts multi-language names to NonEmptyMultiLangURI slice.
+func multiLangToURIs(names []MultiLangName) []etsi119602.NonEmptyMultiLangURI {
+	if len(names) == 0 {
+		return nil
+	}
+	uris := make([]etsi119602.NonEmptyMultiLangURI, len(names))
+	for i, n := range names {
+		uris[i] = etsi119602.NonEmptyMultiLangURI{Lang: n.Language, URIValue: n.Value}
+	}
+	return uris
 }
