@@ -29,8 +29,8 @@ func parseLotlFormat(args []string) lotlFormat {
 }
 
 func lotlFilename(lotl *etsi119602.ListOfTrustedLists, index int) string {
-	if lotl.SchemeInformation.Territory != "" {
-		return fmt.Sprintf("list_of_trusted_lists-%s", lotl.SchemeInformation.Territory)
+	if lotl.ListAndSchemeInformation.SchemeTerritory != "" {
+		return fmt.Sprintf("list_of_trusted_lists-%s", lotl.ListAndSchemeInformation.SchemeTerritory)
 	}
 	if index == 0 {
 		return "list_of_trusted_lists"

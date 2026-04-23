@@ -30,13 +30,14 @@ func MergeLoTEs(pl *Pipeline, ctx *Context, args ...string) (*Context, error) {
 	}
 
 	merged := &etsi119602.ListOfTrustedEntities{
-		Version:           lotes[0].Version,
-		SchemeInformation: lotes[0].SchemeInformation,
+		ListAndSchemeInformation: lotes[0].ListAndSchemeInformation,
 	}
+	// Clear pointers since the loop below re-collects them from all LoTEs including the first
+	merged.ListAndSchemeInformation.PointersToOtherLoTE = nil
 
 	for _, lote := range lotes {
-		merged.TrustedEntities = append(merged.TrustedEntities, lote.TrustedEntities...)
-		merged.PointersToOtherLoTEs = append(merged.PointersToOtherLoTEs, lote.PointersToOtherLoTEs...)
+		merged.TrustedEntitiesList = append(merged.TrustedEntitiesList, lote.TrustedEntitiesList...)
+		merged.ListAndSchemeInformation.PointersToOtherLoTE = append(merged.ListAndSchemeInformation.PointersToOtherLoTE, lote.ListAndSchemeInformation.PointersToOtherLoTE...)
 	}
 
 	// Replace the stack with just the merged LoTE
@@ -46,7 +47,7 @@ func MergeLoTEs(pl *Pipeline, ctx *Context, args ...string) (*Context, error) {
 	if pl != nil && pl.Logger != nil {
 		pl.Logger.Info("Merged LoTEs",
 			logging.F("sources", len(lotes)),
-			logging.F("entities", len(merged.TrustedEntities)))
+			logging.F("entities", len(merged.TrustedEntitiesList)))
 	}
 
 	return ctx, nil

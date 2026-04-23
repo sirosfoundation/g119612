@@ -12,18 +12,16 @@ func TestMergeLoTEs_Basic(t *testing.T) {
 	ctx := NewContext()
 	si := validSchemeInfo("SE")
 	ctx.AddLoTE(&etsi119602.ListOfTrustedEntities{
-		Version:           "1.0",
-		SchemeInformation: si,
-		TrustedEntities: []etsi119602.TrustedEntity{
-			{EntityID: "entity-1", EntityStatus: etsi119602.StatusGranted},
+		ListAndSchemeInformation: si,
+		TrustedEntitiesList: []etsi119602.TrustedEntity{
+			{TrustedEntityInformation: etsi119602.TrustedEntityInformation{TEName: etsi119602.NameSet{{Lang: "en", Value: "entity-1"}}}, TrustedEntityServices: []etsi119602.TrustedEntityService{{ServiceInformation: etsi119602.ServiceInformation{ServiceName: etsi119602.NameSet{{Lang: "en", Value: "svc"}}, ServiceStatus: etsi119602.StatusGranted}}}},
 		},
 	})
 	ctx.AddLoTE(&etsi119602.ListOfTrustedEntities{
-		Version:           "1.0",
-		SchemeInformation: validSchemeInfo("NO"),
-		TrustedEntities: []etsi119602.TrustedEntity{
-			{EntityID: "entity-2", EntityStatus: etsi119602.StatusGranted},
-			{EntityID: "entity-3", EntityStatus: etsi119602.StatusGranted},
+		ListAndSchemeInformation: validSchemeInfo("NO"),
+		TrustedEntitiesList: []etsi119602.TrustedEntity{
+			{TrustedEntityInformation: etsi119602.TrustedEntityInformation{TEName: etsi119602.NameSet{{Lang: "en", Value: "entity-2"}}}, TrustedEntityServices: []etsi119602.TrustedEntityService{{ServiceInformation: etsi119602.ServiceInformation{ServiceName: etsi119602.NameSet{{Lang: "en", Value: "svc"}}, ServiceStatus: etsi119602.StatusGranted}}}},
+			{TrustedEntityInformation: etsi119602.TrustedEntityInformation{TEName: etsi119602.NameSet{{Lang: "en", Value: "entity-3"}}}, TrustedEntityServices: []etsi119602.TrustedEntityService{{ServiceInformation: etsi119602.ServiceInformation{ServiceName: etsi119602.NameSet{{Lang: "en", Value: "svc"}}, ServiceStatus: etsi119602.StatusGranted}}}},
 		},
 	})
 
@@ -32,15 +30,14 @@ func TestMergeLoTEs_Basic(t *testing.T) {
 
 	assert.Equal(t, 1, ctx.GetLoTECount())
 	merged := ctx.GetLoTEs()[0]
-	assert.Len(t, merged.TrustedEntities, 3)
-	assert.Equal(t, "SE", merged.SchemeInformation.Territory) // Takes first LoTE's scheme info
+	assert.Len(t, merged.TrustedEntitiesList, 3)
+	assert.Equal(t, "SE", merged.ListAndSchemeInformation.SchemeTerritory) // Takes first LoTE's scheme info
 }
 
 func TestMergeLoTEs_SingleDoesNothing(t *testing.T) {
 	ctx := NewContext()
 	ctx.AddLoTE(&etsi119602.ListOfTrustedEntities{
-		Version:           "1.0",
-		SchemeInformation: validSchemeInfo("SE"),
+		ListAndSchemeInformation: validSchemeInfo("SE"),
 	})
 
 	ctx, err := MergeLoTEs(nil, ctx)
@@ -57,38 +54,37 @@ func TestMergeLoTEs_Empty(t *testing.T) {
 
 func TestMergeLoTEs_Pointers(t *testing.T) {
 	ctx := NewContext()
+	si1 := validSchemeInfo("SE")
+	si1.PointersToOtherLoTE = []etsi119602.OtherLoTEPointer{
+		{LoTELocation: "https://se.example.com/lote.json"},
+	}
 	ctx.AddLoTE(&etsi119602.ListOfTrustedEntities{
-		Version:           "1.0",
-		SchemeInformation: validSchemeInfo("SE"),
-		PointersToOtherLoTEs: []etsi119602.LoTEPointer{
-			{Location: "https://se.example.com/lote.json"},
-		},
+		ListAndSchemeInformation: si1,
 	})
+	si2 := validSchemeInfo("NO")
+	si2.PointersToOtherLoTE = []etsi119602.OtherLoTEPointer{
+		{LoTELocation: "https://no.example.com/lote.json"},
+	}
 	ctx.AddLoTE(&etsi119602.ListOfTrustedEntities{
-		Version:           "1.0",
-		SchemeInformation: validSchemeInfo("NO"),
-		PointersToOtherLoTEs: []etsi119602.LoTEPointer{
-			{Location: "https://no.example.com/lote.json"},
-		},
+		ListAndSchemeInformation: si2,
 	})
 
 	ctx, err := MergeLoTEs(nil, ctx)
 	require.NoError(t, err)
-	assert.Len(t, ctx.GetLoTEs()[0].PointersToOtherLoTEs, 2)
+	assert.Len(t, ctx.GetLoTEs()[0].ListAndSchemeInformation.PointersToOtherLoTE, 2)
 }
 
 func TestIncrementLoTESequence(t *testing.T) {
 	ctx := NewContext()
 	si := validSchemeInfo("SE")
-	si.SequenceNumber = 5
+	si.LoTESequenceNumber = 5
 	ctx.AddLoTE(&etsi119602.ListOfTrustedEntities{
-		Version:           "1.0",
-		SchemeInformation: si,
+		ListAndSchemeInformation: si,
 	})
 
 	ctx, err := IncrementLoTESequence(nil, ctx)
 	require.NoError(t, err)
-	assert.Equal(t, 6, ctx.GetLoTEs()[0].SchemeInformation.SequenceNumber)
+	assert.Equal(t, 6, ctx.GetLoTEs()[0].ListAndSchemeInformation.LoTESequenceNumber)
 }
 
 func TestIncrementLoTESequence_Empty(t *testing.T) {
@@ -101,21 +97,19 @@ func TestIncrementLoTESequence_Empty(t *testing.T) {
 func TestIncrementLoTESequence_Multiple(t *testing.T) {
 	ctx := NewContext()
 	si1 := validSchemeInfo("SE")
-	si1.SequenceNumber = 10
+	si1.LoTESequenceNumber = 10
 	si2 := validSchemeInfo("NO")
-	si2.SequenceNumber = 20
+	si2.LoTESequenceNumber = 20
 	ctx.AddLoTE(&etsi119602.ListOfTrustedEntities{
-		Version:           "1.0",
-		SchemeInformation: si1,
+		ListAndSchemeInformation: si1,
 	})
 	ctx.AddLoTE(&etsi119602.ListOfTrustedEntities{
-		Version:           "1.0",
-		SchemeInformation: si2,
+		ListAndSchemeInformation: si2,
 	})
 
 	ctx, err := IncrementLoTESequence(nil, ctx)
 	require.NoError(t, err)
 	lotes := ctx.GetLoTEs()
-	assert.Equal(t, 11, lotes[0].SchemeInformation.SequenceNumber)
-	assert.Equal(t, 21, lotes[1].SchemeInformation.SequenceNumber)
+	assert.Equal(t, 11, lotes[0].ListAndSchemeInformation.LoTESequenceNumber)
+	assert.Equal(t, 21, lotes[1].ListAndSchemeInformation.LoTESequenceNumber)
 }

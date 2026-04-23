@@ -22,7 +22,7 @@ func TestConvertTSLToLoTE_Basic(t *testing.T) {
 	require.Len(t, lotes, 1)
 
 	// The converted LoTE should have the operator name from the TSL
-	assert.NotEmpty(t, lotes[0].SchemeInformation.SchemeOperator)
+	assert.NotEmpty(t, lotes[0].ListAndSchemeInformation.SchemeOperatorName)
 }
 
 func TestConvertTSLToLoTE_Empty(t *testing.T) {

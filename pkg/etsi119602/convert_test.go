@@ -2,55 +2,37 @@ package etsi119602
 
 import (
 	"testing"
+	"time"
 
 	"github.com/sirosfoundation/g119612/pkg/etsi119612"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestFromTSL_Empty(t *testing.T) {
-	tsl := &etsi119612.TSL{
-		StatusList: etsi119612.TrustStatusListType{},
-	}
-	lote := FromTSL(tsl)
-	assert.Equal(t, LoTEVersion, lote.Version)
-	assert.Empty(t, lote.TrustedEntities)
-}
-
-func TestFromTSL_WithSchemeInfo(t *testing.T) {
+func TestFromTSL_Basic(t *testing.T) {
 	lang := etsi119612.Lang("en")
-	name := etsi119612.NonEmptyNormalizedString("Test Operator")
+	name := etsi119612.NonEmptyNormalizedString("Swedish TSL")
+	operatorName := etsi119612.NonEmptyNormalizedString("Swedish Authority")
+	svcName := etsi119612.NonEmptyNormalizedString("Test Service")
+	svcType := "http://uri.etsi.org/TrstSvc/Svctype/CA/QC"
+	svcStatus := StatusGranted
 
 	tsl := &etsi119612.TSL{
 		StatusList: etsi119612.TrustStatusListType{
 			TslSchemeInformation: &etsi119612.TSLSchemeInformationType{
 				TslSchemeTerritory: "SE",
-				TslTSLType:         "http://uri.etsi.org/TrstSvc/TrustedList/TSLType/EUgeneric",
-				TSLSequenceNumber:  5,
 				TslSchemeOperatorName: &etsi119612.InternationalNamesType{
+					Name: []*etsi119612.MultiLangNormStringType{
+						{XmlLangAttr: &lang, NonEmptyNormalizedString: &operatorName},
+					},
+				},
+				TslSchemeName: &etsi119612.InternationalNamesType{
 					Name: []*etsi119612.MultiLangNormStringType{
 						{XmlLangAttr: &lang, NonEmptyNormalizedString: &name},
 					},
 				},
-				ListIssueDateTime: "2026-01-15T10:00:00Z",
-			},
-		},
-	}
-
-	lote := FromTSL(tsl)
-	assert.Equal(t, "SE", lote.SchemeInformation.Territory)
-	assert.Equal(t, 5, lote.SchemeInformation.SequenceNumber)
-	assert.Equal(t, "Test Operator", lote.SchemeInformation.SchemeOperator.Get("en", ""))
-}
-
-func TestFromTSL_WithServices(t *testing.T) {
-	lang := etsi119612.Lang("en")
-	svcName := etsi119612.NonEmptyNormalizedString("Test CA")
-
-	tsl := &etsi119612.TSL{
-		StatusList: etsi119612.TrustStatusListType{
-			TslSchemeInformation: &etsi119612.TSLSchemeInformationType{
-				TslTSLType:        "http://example.com/tsl",
+				TslTSLType:        "http://uri.etsi.org/TrstSvc/TrustedList/TSLType/EUlistofthelists",
+				TSLSequenceNumber: 5,
 				ListIssueDateTime: "2026-01-01T00:00:00Z",
 			},
 			TslTrustServiceProviderList: &etsi119612.TrustServiceProviderListType{
@@ -59,7 +41,7 @@ func TestFromTSL_WithServices(t *testing.T) {
 						TslTSPInformation: &etsi119612.TSPInformationType{
 							TSPName: &etsi119612.InternationalNamesType{
 								Name: []*etsi119612.MultiLangNormStringType{
-									{XmlLangAttr: &lang, NonEmptyNormalizedString: &svcName},
+									{XmlLangAttr: &lang, NonEmptyNormalizedString: &operatorName},
 								},
 							},
 						},
@@ -67,17 +49,17 @@ func TestFromTSL_WithServices(t *testing.T) {
 							TslTSPService: []*etsi119612.TSPServiceType{
 								{
 									TslServiceInformation: &etsi119612.TSPServiceInformationType{
-										TslServiceTypeIdentifier: "http://uri.etsi.org/TrstSvc/Svctype/CA/QC",
 										ServiceName: &etsi119612.InternationalNamesType{
 											Name: []*etsi119612.MultiLangNormStringType{
 												{XmlLangAttr: &lang, NonEmptyNormalizedString: &svcName},
 											},
 										},
-										TslServiceStatus:   "http://uri.etsi.org/TrstSvc/TrustedList/Svcstatus/granted",
-										StatusStartingTime: "2025-06-01T00:00:00Z",
+										TslServiceTypeIdentifier: svcType,
+										TslServiceStatus:         svcStatus,
+										StatusStartingTime:       "2025-06-01T00:00:00Z",
 										TslServiceDigitalIdentity: &etsi119612.DigitalIdentityListType{
 											DigitalId: []*etsi119612.DigitalIdentityType{
-												{X509Certificate: "MIIB...base64..."},
+												{X509Certificate: "MIIB...test..."},
 											},
 										},
 									},
@@ -91,134 +73,39 @@ func TestFromTSL_WithServices(t *testing.T) {
 	}
 
 	lote := FromTSL(tsl)
-	assert.Len(t, lote.TrustedEntities, 1)
 
-	entity := lote.TrustedEntities[0]
-	assert.Equal(t, "http://uri.etsi.org/TrstSvc/Svctype/CA/QC#tsp0-svc0", entity.EntityID)
-	assert.Equal(t, "http://uri.etsi.org/TrstSvc/TrustedList/Svcstatus/granted", entity.EntityStatus)
-	assert.Len(t, entity.DigitalIdentities, 1)
-	assert.Equal(t, "x509", entity.DigitalIdentities[0].Type)
-	assert.NotEmpty(t, entity.StatusStartingTime)
-	// Provider extensions should include tsp_name
-	assert.NotNil(t, entity.Extensions)
-	assert.Contains(t, entity.Extensions, "tsp_name")
-}
+	assert.Equal(t, 1, lote.ListAndSchemeInformation.LoTEVersionIdentifier)
+	assert.Equal(t, "SE", lote.ListAndSchemeInformation.SchemeTerritory)
+	assert.Equal(t, 5, lote.ListAndSchemeInformation.LoTESequenceNumber)
+	assert.Equal(t, "Swedish Authority", lote.ListAndSchemeInformation.SchemeOperatorName.Get("en", ""))
+	assert.Equal(t, "2026-01-01T00:00:00Z", lote.ListAndSchemeInformation.ListIssueDateTime)
 
-func TestFromTSL_WithNextUpdate(t *testing.T) {
-	tsl := &etsi119612.TSL{
-		StatusList: etsi119612.TrustStatusListType{
-			TslSchemeInformation: &etsi119612.TSLSchemeInformationType{
-				ListIssueDateTime: "2026-01-01T00:00:00Z",
-				TslNextUpdate: &etsi119612.NextUpdateType{
-					DateTime: "2026-07-01T00:00:00Z",
-				},
-			},
-		},
-	}
-	lote := FromTSL(tsl)
-	require.NotNil(t, lote.SchemeInformation.NextUpdate)
-	assert.Equal(t, 2026, lote.SchemeInformation.NextUpdate.Year())
-	assert.Equal(t, 7, int(lote.SchemeInformation.NextUpdate.Month()))
-}
+	require.Len(t, lote.TrustedEntitiesList, 1)
+	entity := lote.TrustedEntitiesList[0]
+	assert.Equal(t, "Test Service", entity.TrustedEntityInformation.TEName.Get("en", ""))
 
-func TestFromTSL_WithDistributionPoints(t *testing.T) {
-	tsl := &etsi119612.TSL{
-		StatusList: etsi119612.TrustStatusListType{
-			TslSchemeInformation: &etsi119612.TSLSchemeInformationType{
-				TslDistributionPoints: &etsi119612.NonEmptyURIListType{
-					URI: []string{"https://example.com/tsl.xml", "https://backup.example.com/tsl.xml"},
-				},
-			},
-		},
-	}
-	lote := FromTSL(tsl)
-	assert.Equal(t, []string{"https://example.com/tsl.xml", "https://backup.example.com/tsl.xml"}, lote.SchemeInformation.DistributionPoints)
-}
-
-func TestFromTSL_WithSchemeInformationURI(t *testing.T) {
-	lang := etsi119612.Lang("en")
-	tsl := &etsi119612.TSL{
-		StatusList: etsi119612.TrustStatusListType{
-			TslSchemeInformation: &etsi119612.TSLSchemeInformationType{
-				TslSchemeInformationURI: &etsi119612.NonEmptyMultiLangURIListType{
-					URI: []*etsi119612.NonEmptyMultiLangURIType{
-						{XmlLangAttr: &lang, Value: "https://info.example.com"},
-						{Value: "https://nolang.example.com"},
-					},
-				},
-			},
-		},
-	}
-	lote := FromTSL(tsl)
-	require.Len(t, lote.SchemeInformation.SchemeInformationURI, 2)
-	assert.Equal(t, "en", lote.SchemeInformation.SchemeInformationURI[0].Language)
-	assert.Equal(t, "https://info.example.com", lote.SchemeInformation.SchemeInformationURI[0].URI)
-	assert.Equal(t, "", lote.SchemeInformation.SchemeInformationURI[1].Language)
-}
-
-func TestFromTSL_WithPolicyNotice(t *testing.T) {
-	lang := etsi119612.Lang("en")
-	notice := etsi119612.NonEmptyString("Legal notice text")
-	tsl := &etsi119612.TSL{
-		StatusList: etsi119612.TrustStatusListType{
-			TslSchemeInformation: &etsi119612.TSLSchemeInformationType{
-				TslPolicyOrLegalNotice: &etsi119612.PolicyOrLegalnoticeType{
-					TSLLegalNotice: []*etsi119612.MultiLangStringType{
-						{XmlLangAttr: &lang, NonEmptyString: &notice},
-						{}, // empty notice — tests nil guard
-					},
-				},
-			},
-		},
-	}
-	lote := FromTSL(tsl)
-	require.Len(t, lote.SchemeInformation.PolicyOrLegalNotice, 2)
-	assert.Equal(t, "Legal notice text", lote.SchemeInformation.PolicyOrLegalNotice[0].Value)
-	assert.Equal(t, "", lote.SchemeInformation.PolicyOrLegalNotice[1].Value)
+	require.Len(t, entity.TrustedEntityServices, 1)
+	svc := entity.TrustedEntityServices[0]
+	assert.Equal(t, svcType, svc.ServiceInformation.ServiceTypeIdentifier)
+	assert.Equal(t, svcStatus, svc.ServiceInformation.ServiceStatus)
+	require.Len(t, svc.ServiceInformation.ServiceDigitalIdentity.X509Certificates, 1)
+	assert.Equal(t, "MIIB...test...", svc.ServiceInformation.ServiceDigitalIdentity.X509Certificates[0].Val)
 }
 
 func TestFromTSL_WithPointers(t *testing.T) {
 	tsl := &etsi119612.TSL{
 		StatusList: etsi119612.TrustStatusListType{
 			TslSchemeInformation: &etsi119612.TSLSchemeInformationType{
+				TslSchemeTerritory: "EU",
 				TslPointersToOtherTSL: &etsi119612.OtherTSLPointersType{
 					TslOtherTSLPointer: []*etsi119612.OtherTSLPointerType{
-						{TSLLocation: "https://other.example.com/tsl.xml"},
-						{TSLLocation: "https://another.example.com/tsl.xml"},
-					},
-				},
-			},
-		},
-	}
-	lote := FromTSL(tsl)
-	require.Len(t, lote.PointersToOtherLoTEs, 2)
-	assert.Equal(t, "https://other.example.com/tsl.xml", lote.PointersToOtherLoTEs[0].Location)
-}
-
-func TestFromTSL_WithX509SubjectName(t *testing.T) {
-	lang := etsi119612.Lang("en")
-	svcName := etsi119612.NonEmptyNormalizedString("Subject Name Service")
-	tsl := &etsi119612.TSL{
-		StatusList: etsi119612.TrustStatusListType{
-			TslTrustServiceProviderList: &etsi119612.TrustServiceProviderListType{
-				TslTrustServiceProvider: []*etsi119612.TSPType{
-					{
-						TslTSPServices: &etsi119612.TSPServicesListType{
-							TslTSPService: []*etsi119612.TSPServiceType{
-								{
-									TslServiceInformation: &etsi119612.TSPServiceInformationType{
-										TslServiceTypeIdentifier: "http://svctype/test",
-										ServiceName: &etsi119612.InternationalNamesType{
-											Name: []*etsi119612.MultiLangNormStringType{
-												{XmlLangAttr: &lang, NonEmptyNormalizedString: &svcName},
-											},
-										},
-										TslServiceStatus: StatusGranted,
-										TslServiceDigitalIdentity: &etsi119612.DigitalIdentityListType{
-											DigitalId: []*etsi119612.DigitalIdentityType{
-												{X509SubjectName: "CN=Test,O=Org,C=SE"},
-												{X509Certificate: "AAAA"},
-											},
+						{
+							TSLLocation: "https://example.se/tsl.xml",
+							TslServiceDigitalIdentities: &etsi119612.ServiceDigitalIdentityListType{
+								TslServiceDigitalIdentity: []*etsi119612.DigitalIdentityListType{
+									{
+										DigitalId: []*etsi119612.DigitalIdentityType{
+											{X509Certificate: "MIIB...signer..."},
 										},
 									},
 								},
@@ -229,32 +116,76 @@ func TestFromTSL_WithX509SubjectName(t *testing.T) {
 			},
 		},
 	}
+
 	lote := FromTSL(tsl)
-	require.Len(t, lote.TrustedEntities, 1)
-	require.Len(t, lote.TrustedEntities[0].DigitalIdentities, 2)
-	assert.Equal(t, "x509_subject_name", lote.TrustedEntities[0].DigitalIdentities[0].Type)
-	assert.Equal(t, "CN=Test,O=Org,C=SE", lote.TrustedEntities[0].DigitalIdentities[0].X509SubjectName)
-	assert.Equal(t, "x509", lote.TrustedEntities[0].DigitalIdentities[1].Type)
-	assert.Contains(t, lote.TrustedEntities[0].EntityID, "#tsp0-svc0")
+	ptrs := lote.ListAndSchemeInformation.PointersToOtherLoTE
+	require.Len(t, ptrs, 1)
+	assert.Equal(t, "https://example.se/tsl.xml", ptrs[0].LoTELocation)
+	require.Len(t, ptrs[0].ServiceDigitalIdentities, 1)
+	require.Len(t, ptrs[0].ServiceDigitalIdentities[0].X509Certificates, 1)
 }
 
-func TestFromTSL_WithInformationURIs(t *testing.T) {
+func TestFromTSL_WithAddress(t *testing.T) {
 	lang := etsi119612.Lang("en")
-	svcName := etsi119612.NonEmptyNormalizedString("URI Service")
+	providerName := etsi119612.NonEmptyNormalizedString("Provider AB")
+	svcName := etsi119612.NonEmptyNormalizedString("Test Service")
+
 	tsl := &etsi119612.TSL{
 		StatusList: etsi119612.TrustStatusListType{
+			TslSchemeInformation: &etsi119612.TSLSchemeInformationType{
+				TslSchemeTerritory: "SE",
+				TslSchemeOperatorName: &etsi119612.InternationalNamesType{
+					Name: []*etsi119612.MultiLangNormStringType{
+						{XmlLangAttr: &lang, NonEmptyNormalizedString: &providerName},
+					},
+				},
+				ListIssueDateTime: "2026-04-01T00:00:00Z",
+				TslNextUpdate: &etsi119612.NextUpdateType{
+					DateTime: "2026-10-01T00:00:00Z",
+				},
+				TslSchemeInformationURI: &etsi119612.NonEmptyMultiLangURIListType{
+					URI: []*etsi119612.NonEmptyMultiLangURIType{
+						{XmlLangAttr: &lang, Value: "https://example.se/info"},
+					},
+				},
+				TslDistributionPoints: &etsi119612.NonEmptyURIListType{
+					URI: []string{"https://example.se/tsl.xml"},
+				},
+				TslPolicyOrLegalNotice: &etsi119612.PolicyOrLegalnoticeType{
+					TSLLegalNotice: []*etsi119612.MultiLangStringType{
+						{NonEmptyString: ptrString("Legal notice text")},
+					},
+				},
+			},
 			TslTrustServiceProviderList: &etsi119612.TrustServiceProviderListType{
 				TslTrustServiceProvider: []*etsi119612.TSPType{
 					{
 						TslTSPInformation: &etsi119612.TSPInformationType{
 							TSPName: &etsi119612.InternationalNamesType{
 								Name: []*etsi119612.MultiLangNormStringType{
-									{XmlLangAttr: &lang, NonEmptyNormalizedString: &svcName},
+									{XmlLangAttr: &lang, NonEmptyNormalizedString: &providerName},
+								},
+							},
+							TSPAddress: &etsi119612.AddressType{
+								TslPostalAddresses: &etsi119612.PostalAddressListType{
+									TslPostalAddress: []*etsi119612.PostalAddressType{
+										{
+											XmlLangAttr:   &lang,
+											StreetAddress: "Box 14",
+											Locality:      "Stockholm",
+											CountryName:   "SE",
+										},
+									},
+								},
+								TslElectronicAddress: &etsi119612.ElectronicAddressType{
+									URI: []*etsi119612.NonEmptyMultiLangURIType{
+										{XmlLangAttr: &lang, Value: "mailto:info@example.se"},
+									},
 								},
 							},
 							TSPInformationURI: &etsi119612.NonEmptyMultiLangURIListType{
 								URI: []*etsi119612.NonEmptyMultiLangURIType{
-									{XmlLangAttr: &lang, Value: "https://provider.example.com"},
+									{XmlLangAttr: &lang, Value: "https://provider.example.se"},
 								},
 							},
 						},
@@ -262,13 +193,35 @@ func TestFromTSL_WithInformationURIs(t *testing.T) {
 							TslTSPService: []*etsi119612.TSPServiceType{
 								{
 									TslServiceInformation: &etsi119612.TSPServiceInformationType{
-										TslServiceTypeIdentifier: "http://svctype/uri",
 										ServiceName: &etsi119612.InternationalNamesType{
 											Name: []*etsi119612.MultiLangNormStringType{
 												{XmlLangAttr: &lang, NonEmptyNormalizedString: &svcName},
 											},
 										},
-										TslServiceStatus: StatusGranted,
+										TslServiceTypeIdentifier: "http://uri.etsi.org/TrstSvc/Svctype/CA/QC",
+										TslServiceStatus:         StatusGranted,
+										StatusStartingTime:       "2025-01-01T00:00:00Z",
+										TslServiceDigitalIdentity: &etsi119612.DigitalIdentityListType{
+											DigitalId: []*etsi119612.DigitalIdentityType{
+												{X509Certificate: "MIIB...cert...", X509SubjectName: "CN=Test"},
+											},
+										},
+										TslServiceSupplyPoints: &etsi119612.ServiceSupplyPointsType{
+											ServiceSupplyPoint: &etsi119612.AttributedNonEmptyURIType{Value: "https://supply.example.se"},
+										},
+									},
+									TslServiceHistory: &etsi119612.ServiceHistoryType{
+										TslServiceHistoryInstance: []*etsi119612.ServiceHistoryInstanceType{
+											{
+												ServiceName: &etsi119612.InternationalNamesType{
+													Name: []*etsi119612.MultiLangNormStringType{
+														{XmlLangAttr: &lang, NonEmptyNormalizedString: &svcName},
+													},
+												},
+												TslServiceStatus:   StatusWithdrawn,
+												StatusStartingTime: "2024-01-01T00:00:00Z",
+											},
+										},
 									},
 								},
 							},
@@ -278,82 +231,118 @@ func TestFromTSL_WithInformationURIs(t *testing.T) {
 			},
 		},
 	}
+
 	lote := FromTSL(tsl)
-	require.Len(t, lote.TrustedEntities, 1)
-	require.Len(t, lote.TrustedEntities[0].InformationURIs, 1)
-	assert.Equal(t, "https://provider.example.com", lote.TrustedEntities[0].InformationURIs[0].URI)
+
+	// Scheme information
+	assert.Equal(t, "SE", lote.ListAndSchemeInformation.SchemeTerritory)
+	assert.Equal(t, "2026-04-01T00:00:00Z", lote.ListAndSchemeInformation.ListIssueDateTime)
+	assert.Equal(t, "2026-10-01T00:00:00Z", lote.ListAndSchemeInformation.NextUpdate)
+	require.Len(t, lote.ListAndSchemeInformation.SchemeInformationURI, 1)
+	assert.Equal(t, "https://example.se/info", lote.ListAndSchemeInformation.SchemeInformationURI[0].URIValue)
+	require.Len(t, lote.ListAndSchemeInformation.DistributionPoints, 1)
+	assert.Equal(t, "https://example.se/tsl.xml", lote.ListAndSchemeInformation.DistributionPoints[0])
+	require.Len(t, lote.ListAndSchemeInformation.PolicyOrLegalNotice, 1)
+	assert.Equal(t, "Legal notice text", lote.ListAndSchemeInformation.PolicyOrLegalNotice[0].LoTELegalNotice)
+
+	// Entity with address
+	require.Len(t, lote.TrustedEntitiesList, 1)
+	entity := lote.TrustedEntitiesList[0]
+	require.NotNil(t, entity.TrustedEntityInformation.TEAddress)
+	require.Len(t, entity.TrustedEntityInformation.TEAddress.TEPostalAddress, 1)
+	assert.Equal(t, "Box 14", entity.TrustedEntityInformation.TEAddress.TEPostalAddress[0].StreetAddress)
+	assert.Equal(t, "SE", entity.TrustedEntityInformation.TEAddress.TEPostalAddress[0].Country)
+	require.Len(t, entity.TrustedEntityInformation.TEAddress.TEElectronicAddress, 1)
+	assert.Equal(t, "mailto:info@example.se", entity.TrustedEntityInformation.TEAddress.TEElectronicAddress[0].URIValue)
+
+	// Information URI
+	require.Len(t, entity.TrustedEntityInformation.TEInformationURI, 2) // entityID + provider URI
+
+	// Service with digital identity
+	require.Len(t, entity.TrustedEntityServices, 1)
+	svc := entity.TrustedEntityServices[0]
+	require.Len(t, svc.ServiceInformation.ServiceDigitalIdentity.X509Certificates, 1)
+	require.Len(t, svc.ServiceInformation.ServiceDigitalIdentity.X509SubjectNames, 1)
+	assert.Equal(t, "CN=Test", svc.ServiceInformation.ServiceDigitalIdentity.X509SubjectNames[0])
+
+	// Supply points
+	require.Len(t, svc.ServiceInformation.ServiceSupplyPoints, 1)
+	assert.Equal(t, "https://supply.example.se", svc.ServiceInformation.ServiceSupplyPoints[0].URIValue)
+
+	// Service history
+	require.Len(t, svc.ServiceHistory, 1)
+	assert.Equal(t, StatusWithdrawn, svc.ServiceHistory[0].ServiceStatus)
+	assert.Equal(t, "2024-01-01T00:00:00Z", svc.ServiceHistory[0].StatusStartingTime)
 }
 
-func TestFromTSL_TSPWithNoServices(t *testing.T) {
-	// TSP without services should be skipped
-	tsl := &etsi119612.TSL{
-		StatusList: etsi119612.TrustStatusListType{
-			TslTrustServiceProviderList: &etsi119612.TrustServiceProviderListType{
-				TslTrustServiceProvider: []*etsi119612.TSPType{
-					{
-						TslTSPInformation: &etsi119612.TSPInformationType{},
-						TslTSPServices:    nil, // no services
-					},
-				},
-			},
-		},
-	}
-	lote := FromTSL(tsl)
-	assert.Empty(t, lote.TrustedEntities)
+func ptrString(s string) *etsi119612.NonEmptyString {
+	v := etsi119612.NonEmptyString(s)
+	return &v
 }
 
-func TestFromTSL_ServiceWithNilInfo(t *testing.T) {
-	// Service with nil ServiceInformation should be skipped
-	tsl := &etsi119612.TSL{
-		StatusList: etsi119612.TrustStatusListType{
-			TslTrustServiceProviderList: &etsi119612.TrustServiceProviderListType{
-				TslTrustServiceProvider: []*etsi119612.TSPType{
-					{
-						TslTSPServices: &etsi119612.TSPServicesListType{
-							TslTSPService: []*etsi119612.TSPServiceType{
-								{TslServiceInformation: nil},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-	lote := FromTSL(tsl)
-	assert.Empty(t, lote.TrustedEntities)
-}
-
-func TestFromTSL_InvalidDates(t *testing.T) {
-	tsl := &etsi119612.TSL{
-		StatusList: etsi119612.TrustStatusListType{
-			TslSchemeInformation: &etsi119612.TSLSchemeInformationType{
-				ListIssueDateTime: "not-a-date",
-				TslNextUpdate: &etsi119612.NextUpdateType{
-					DateTime: "also-not-a-date",
-				},
-			},
-		},
-	}
-	lote := FromTSL(tsl)
-	// Dates should be zero values when parsing fails
-	assert.True(t, lote.SchemeInformation.IssueDate.IsZero())
-	assert.Nil(t, lote.SchemeInformation.NextUpdate)
-}
-
-func TestFromTSL_SchemeName(t *testing.T) {
+func TestConvertAddress(t *testing.T) {
 	lang := etsi119612.Lang("en")
-	name := etsi119612.NonEmptyNormalizedString("Scheme Name")
-	tsl := &etsi119612.TSL{
-		StatusList: etsi119612.TrustStatusListType{
-			TslSchemeInformation: &etsi119612.TSLSchemeInformationType{
-				TslSchemeName: &etsi119612.InternationalNamesType{
-					Name: []*etsi119612.MultiLangNormStringType{
-						{XmlLangAttr: &lang, NonEmptyNormalizedString: &name},
-					},
+
+	// nil address
+	assert.Nil(t, convertAddress(nil))
+
+	// Address with postal and electronic
+	addr := &etsi119612.AddressType{
+		TslPostalAddresses: &etsi119612.PostalAddressListType{
+			TslPostalAddress: []*etsi119612.PostalAddressType{
+				{
+					XmlLangAttr:     &lang,
+					StreetAddress:   "123 Main St",
+					Locality:        "Stockholm",
+					StateOrProvince: "Stockholm",
+					PostalCode:      "111 22",
+					CountryName:     "SE",
 				},
 			},
 		},
+		TslElectronicAddress: &etsi119612.ElectronicAddressType{
+			URI: []*etsi119612.NonEmptyMultiLangURIType{
+				{XmlLangAttr: &lang, Value: "https://example.se"},
+			},
+		},
 	}
-	lote := FromTSL(tsl)
-	assert.Equal(t, "Scheme Name", lote.SchemeInformation.SchemeName.Get("en", ""))
+
+	result := convertAddress(addr)
+	require.NotNil(t, result)
+	require.Len(t, result.TEPostalAddress, 1)
+	assert.Equal(t, "123 Main St", result.TEPostalAddress[0].StreetAddress)
+	assert.Equal(t, "Stockholm", result.TEPostalAddress[0].Locality)
+	assert.Equal(t, "Stockholm", result.TEPostalAddress[0].StateOrProvince)
+	assert.Equal(t, "111 22", result.TEPostalAddress[0].PostalCode)
+	assert.Equal(t, "SE", result.TEPostalAddress[0].Country)
+	assert.Equal(t, "en", result.TEPostalAddress[0].Lang)
+
+	require.Len(t, result.TEElectronicAddress, 1)
+	assert.Equal(t, "https://example.se", result.TEElectronicAddress[0].URIValue)
+	assert.Equal(t, "en", result.TEElectronicAddress[0].Lang)
+}
+
+func TestTimeToString(t *testing.T) {
+	assert.Equal(t, "", timeToString(time.Time{}))
+
+	ts := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
+	assert.Equal(t, "2026-01-01T12:00:00Z", timeToString(ts))
+}
+
+func TestURIsFromInternational(t *testing.T) {
+	assert.Nil(t, urisFromInternational(nil))
+
+	lang := etsi119612.Lang("en")
+	uris := &etsi119612.NonEmptyMultiLangURIListType{
+		URI: []*etsi119612.NonEmptyMultiLangURIType{
+			{XmlLangAttr: &lang, Value: "https://example.com"},
+			{Value: "https://example.se"},
+		},
+	}
+	result := urisFromInternational(uris)
+	require.Len(t, result, 2)
+	assert.Equal(t, "en", result[0].Lang)
+	assert.Equal(t, "https://example.com", result[0].URIValue)
+	assert.Equal(t, "", result[1].Lang)
+	assert.Equal(t, "https://example.se", result[1].URIValue)
 }

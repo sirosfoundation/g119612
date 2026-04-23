@@ -61,9 +61,10 @@ func TestLoadLoTEEntity_WithPEM(t *testing.T) {
 
 	entity, err := loadLoTEEntity(dir)
 	require.NoError(t, err)
-	assert.Equal(t, "urn:test:entity", entity.EntityID)
-	require.Len(t, entity.DigitalIdentities, 1)
-	assert.Equal(t, "x509", entity.DigitalIdentities[0].Type)
+	assert.Equal(t, "Test Entity", entity.TrustedEntityInformation.TEName[0].Value)
+	require.Len(t, entity.TrustedEntityServices, 1)
+	sdi := entity.TrustedEntityServices[0].ServiceInformation.ServiceDigitalIdentity
+	require.Len(t, sdi.X509Certificates, 1)
 }
 
 func TestLoadLoTEEntity_WithCRT(t *testing.T) {
@@ -75,8 +76,9 @@ func TestLoadLoTEEntity_WithCRT(t *testing.T) {
 
 	entity, err := loadLoTEEntity(dir)
 	require.NoError(t, err)
-	require.Len(t, entity.DigitalIdentities, 1)
-	assert.Equal(t, "x509", entity.DigitalIdentities[0].Type)
+	require.Len(t, entity.TrustedEntityServices, 1)
+	sdi := entity.TrustedEntityServices[0].ServiceInformation.ServiceDigitalIdentity
+	require.Len(t, sdi.X509Certificates, 1)
 }
 
 func TestLoadLoTEEntity_WithJWK(t *testing.T) {
@@ -94,8 +96,9 @@ func TestLoadLoTEEntity_WithJWK(t *testing.T) {
 
 	entity, err := loadLoTEEntity(dir)
 	require.NoError(t, err)
-	require.Len(t, entity.DigitalIdentities, 1)
-	assert.Equal(t, "jwk", entity.DigitalIdentities[0].Type)
+	require.Len(t, entity.TrustedEntityServices, 1)
+	sdi := entity.TrustedEntityServices[0].ServiceInformation.ServiceDigitalIdentity
+	require.Len(t, sdi.PublicKeyValues, 1)
 }
 
 func TestLoadLoTEEntity_WithDID(t *testing.T) {
@@ -105,9 +108,10 @@ func TestLoadLoTEEntity_WithDID(t *testing.T) {
 
 	entity, err := loadLoTEEntity(dir)
 	require.NoError(t, err)
-	require.Len(t, entity.DigitalIdentities, 1)
-	assert.Equal(t, "did", entity.DigitalIdentities[0].Type)
-	assert.Equal(t, "did:web:example.com", entity.DigitalIdentities[0].DID)
+	require.Len(t, entity.TrustedEntityServices, 1)
+	sdi := entity.TrustedEntityServices[0].ServiceInformation.ServiceDigitalIdentity
+	require.Len(t, sdi.OtherIds, 1)
+	assert.Equal(t, "did:web:example.com", sdi.OtherIds[0])
 }
 
 func TestLoadLoTEEntity_InvalidDID(t *testing.T) {
@@ -154,7 +158,7 @@ func TestLoadLoTEEntity_DefaultStatus(t *testing.T) {
 
 	entity, err := loadLoTEEntity(dir)
 	require.NoError(t, err)
-	assert.Equal(t, etsi119602.StatusGranted, entity.EntityStatus)
+	assert.Equal(t, etsi119602.StatusGranted, entity.TrustedEntityServices[0].ServiceInformation.ServiceStatus)
 }
 
 func TestLoadLoTEEntity_WithServices(t *testing.T) {
@@ -175,8 +179,8 @@ services:
 
 	entity, err := loadLoTEEntity(dir)
 	require.NoError(t, err)
-	require.Len(t, entity.Services, 1)
-	assert.Equal(t, "http://type/test", entity.Services[0].ServiceType)
+	require.Len(t, entity.TrustedEntityServices, 1)
+	assert.Equal(t, "http://type/test", entity.TrustedEntityServices[0].ServiceInformation.ServiceTypeIdentifier)
 }
 
 // --- GenerateLoTE coverage ---
@@ -206,7 +210,7 @@ func TestGenerateLoTE_NoEntitiesDir(t *testing.T) {
 	assert.Equal(t, 1, result.LoTEs.Size())
 	lote, ok := result.LoTEs.Peek()
 	require.True(t, ok)
-	assert.Empty(t, lote.TrustedEntities)
+	assert.Empty(t, lote.TrustedEntitiesList)
 }
 
 func TestGenerateLoTE_WithEntity(t *testing.T) {
@@ -227,8 +231,8 @@ func TestGenerateLoTE_WithEntity(t *testing.T) {
 	require.Equal(t, 1, result.LoTEs.Size())
 	lote, ok := result.LoTEs.Peek()
 	require.True(t, ok)
-	require.Len(t, lote.TrustedEntities, 1)
-	assert.Equal(t, "urn:test:e1", lote.TrustedEntities[0].EntityID)
+	require.Len(t, lote.TrustedEntitiesList, 1)
+	assert.Equal(t, "Test Entity", lote.TrustedEntitiesList[0].TrustedEntityInformation.TEName[0].Value)
 }
 
 // --- LoadLoTE coverage ---
@@ -243,10 +247,15 @@ func TestLoadLoTE_NoArgs(t *testing.T) {
 func TestLoadLoTE_FileSuccess(t *testing.T) {
 	dir := t.TempDir()
 	lote := &etsi119602.ListOfTrustedEntities{
-		Version:           etsi119602.LoTEVersion,
-		SchemeInformation: etsi119602.SchemeInformation{Territory: "SE"},
+		ListAndSchemeInformation: etsi119602.ListAndSchemeInformation{
+			LoTEVersionIdentifier: 1,
+			SchemeTerritory:       "SE",
+			SchemeOperatorName:    etsi119602.NameSet{{Lang: "en", Value: "Test"}},
+			ListIssueDateTime:     "2026-01-01T00:00:00Z",
+			NextUpdate:            "2027-01-01T00:00:00Z",
+		},
 	}
-	data, err := json.Marshal(lote)
+	data, err := lote.MarshalIndent()
 	require.NoError(t, err)
 	path := filepath.Join(dir, "test.json")
 	require.NoError(t, os.WriteFile(path, data, 0600))
@@ -257,7 +266,7 @@ func TestLoadLoTE_FileSuccess(t *testing.T) {
 	require.Equal(t, 1, result.LoTEs.Size())
 	peek, ok := result.LoTEs.Peek()
 	require.True(t, ok)
-	assert.Equal(t, "SE", peek.SchemeInformation.Territory)
+	assert.Equal(t, "SE", peek.ListAndSchemeInformation.SchemeTerritory)
 }
 
 func TestLoadLoTE_InvalidFile(t *testing.T) {
@@ -293,12 +302,13 @@ func TestPublishLoTE_UnsignedSuccess(t *testing.T) {
 	ctx := NewContext()
 	ctx.EnsureLoTEs()
 	lote := &etsi119602.ListOfTrustedEntities{
-		Version: etsi119602.LoTEVersion,
-		SchemeInformation: etsi119602.SchemeInformation{
-			Territory:      "SE",
-			SchemeOperator: etsi119602.NameSet{{Language: "en", Value: "Operator"}},
-			SchemeType:     "http://type/test",
-			IssueDate:      time.Now().UTC(),
+		ListAndSchemeInformation: etsi119602.ListAndSchemeInformation{
+			LoTEVersionIdentifier: 1,
+			SchemeTerritory:       "SE",
+			SchemeOperatorName:    etsi119602.NameSet{{Lang: "en", Value: "Operator"}},
+			LoTEType:              "http://type/test",
+			ListIssueDateTime:     "2026-01-01T00:00:00Z",
+			NextUpdate:            "2027-01-01T00:00:00Z",
 		},
 	}
 	ctx.LoTEs.Push(lote)
@@ -331,12 +341,13 @@ func TestPublishLoTE_WithFileSigner(t *testing.T) {
 	ctx := NewContext()
 	ctx.EnsureLoTEs()
 	lote := &etsi119602.ListOfTrustedEntities{
-		Version: etsi119602.LoTEVersion,
-		SchemeInformation: etsi119602.SchemeInformation{
-			Territory:      "FI",
-			SchemeOperator: etsi119602.NameSet{{Language: "en", Value: "Finnish Op"}},
-			SchemeType:     "http://type/fi",
-			IssueDate:      time.Now().UTC(),
+		ListAndSchemeInformation: etsi119602.ListAndSchemeInformation{
+			LoTEVersionIdentifier: 1,
+			SchemeTerritory:       "FI",
+			SchemeOperatorName:    etsi119602.NameSet{{Lang: "en", Value: "Finnish Op"}},
+			LoTEType:              "http://type/fi",
+			ListIssueDateTime:     "2026-01-01T00:00:00Z",
+			NextUpdate:            "2027-01-01T00:00:00Z",
 		},
 	}
 	ctx.LoTEs.Push(lote)
@@ -369,14 +380,19 @@ func TestIncrementLoTESequence_Success(t *testing.T) {
 	ctx := NewContext()
 	ctx.EnsureLoTEs()
 	lote := &etsi119602.ListOfTrustedEntities{
-		Version:           etsi119602.LoTEVersion,
-		SchemeInformation: etsi119602.SchemeInformation{SequenceNumber: 5},
+		ListAndSchemeInformation: etsi119602.ListAndSchemeInformation{
+			LoTEVersionIdentifier: 1,
+			LoTESequenceNumber:    5,
+			SchemeOperatorName:    etsi119602.NameSet{{Lang: "en", Value: "Test"}},
+			ListIssueDateTime:     "2026-01-01T00:00:00Z",
+			NextUpdate:            "2027-01-01T00:00:00Z",
+		},
 	}
 	ctx.LoTEs.Push(lote)
 
 	_, err := IncrementLoTESequence(nil, ctx)
 	require.NoError(t, err)
-	assert.Equal(t, 6, lote.SchemeInformation.SequenceNumber)
+	assert.Equal(t, 6, lote.ListAndSchemeInformation.LoTESequenceNumber)
 }
 
 // --- createLoTESigner coverage ---
@@ -428,6 +444,21 @@ func writeEntityYAML(t *testing.T, dir, name, entityID, status string) {
 		Names:    []MultiLangName{{Language: "en", Value: name}},
 		EntityID: entityID,
 		Status:   status,
+		Address: &Address{
+			Postal: struct {
+				StreetAddress   string `yaml:"streetAddress"`
+				Locality        string `yaml:"locality"`
+				StateOrProvince string `yaml:"stateOrProvince,omitempty"`
+				PostalCode      string `yaml:"postalCode,omitempty"`
+				CountryName     string `yaml:"countryName"`
+			}{
+				StreetAddress: "Test Street 1",
+				Locality:      "Test City",
+				CountryName:   "SE",
+			},
+			Electronic: []string{"mailto:test@example.com"},
+		},
+		InformationURI: []MultiLangName{{Language: "en", Value: "https://example.com"}},
 	}
 	data, err := yaml.Marshal(meta)
 	require.NoError(t, err)

@@ -23,9 +23,13 @@ pointers:
   - location: "https://example.com/lote-pid.json"
     schemeTerritory: EU
     schemeType: "http://uri.etsi.org/19602/LoTEType/EUPIDProvidersList"
+    schemeOperatorNames:
+      - language: en
+        value: "PID Operator"
   - location: "https://example.com/lote-wallet.json"
     schemeTerritory: EU
     schemeType: "http://uri.etsi.org/19602/LoTEType/EUWalletProvidersList"
+    mimeType: "application/xml"
 `
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "lotl.yaml"), []byte(lotlYAML), 0644))
 
@@ -38,16 +42,19 @@ pointers:
 	require.Len(t, lotls, 1)
 
 	lotl := lotls[0]
-	assert.Equal(t, etsi119602.LoTEVersion, lotl.Version)
-	assert.Equal(t, "EU", lotl.SchemeInformation.Territory)
-	assert.Equal(t, etsi119602.LoTLTypeEU, lotl.SchemeInformation.SchemeType)
-	assert.Equal(t, "European Commission", lotl.SchemeInformation.SchemeOperator.Get("en", ""))
-	assert.False(t, lotl.SchemeInformation.IssueDate.IsZero())
+	assert.Equal(t, 1, lotl.ListAndSchemeInformation.LoTEVersionIdentifier)
+	assert.Equal(t, "EU", lotl.ListAndSchemeInformation.SchemeTerritory)
+	assert.Equal(t, etsi119602.LoTLTypeEU, lotl.ListAndSchemeInformation.LoTEType)
+	assert.Equal(t, "European Commission", lotl.ListAndSchemeInformation.SchemeOperatorName.Get("en", ""))
+	assert.NotEmpty(t, lotl.ListAndSchemeInformation.ListIssueDateTime)
 
-	require.Len(t, lotl.PointersToOtherLoTEs, 2)
-	assert.Equal(t, "https://example.com/lote-pid.json", lotl.PointersToOtherLoTEs[0].Location)
-	assert.Equal(t, etsi119602.LoTETypePIDProviders, lotl.PointersToOtherLoTEs[0].SchemeType)
-	assert.Equal(t, "https://example.com/lote-wallet.json", lotl.PointersToOtherLoTEs[1].Location)
+	require.Len(t, lotl.ListAndSchemeInformation.PointersToOtherLoTE, 2)
+	assert.Equal(t, "https://example.com/lote-pid.json", lotl.ListAndSchemeInformation.PointersToOtherLoTE[0].LoTELocation)
+	assert.Equal(t, etsi119602.LoTETypePIDProviders, lotl.ListAndSchemeInformation.PointersToOtherLoTE[0].LoTEQualifiers[0].LoTEType)
+	assert.Equal(t, "PID Operator", lotl.ListAndSchemeInformation.PointersToOtherLoTE[0].LoTEQualifiers[0].SchemeOperatorName.Get("en", ""))
+	assert.Equal(t, "application/json", lotl.ListAndSchemeInformation.PointersToOtherLoTE[0].LoTEQualifiers[0].MimeType) // default
+	assert.Equal(t, "https://example.com/lote-wallet.json", lotl.ListAndSchemeInformation.PointersToOtherLoTE[1].LoTELocation)
+	assert.Equal(t, "application/xml", lotl.ListAndSchemeInformation.PointersToOtherLoTE[1].LoTEQualifiers[0].MimeType) // explicit
 }
 
 func TestGenerateLoTL_MissingArgs(t *testing.T) {
@@ -109,7 +116,7 @@ schemeType: "http://example.com/type"
 
 	lotls := ctx.GetLoTLs()
 	require.Len(t, lotls, 1)
-	assert.Empty(t, lotls[0].PointersToOtherLoTEs)
+	assert.Empty(t, lotls[0].ListAndSchemeInformation.PointersToOtherLoTE)
 }
 
 func TestGenerateLoTL_AutoDetectsSchemeYAML(t *testing.T) {
@@ -133,5 +140,5 @@ territory: SE
 	assert.Equal(t, 0, ctx.GetLoTLCount())
 	lotes := ctx.LoTEs.ToSlice()
 	require.Len(t, lotes, 1)
-	assert.Equal(t, "SE", lotes[0].SchemeInformation.Territory)
+	assert.Equal(t, "SE", lotes[0].ListAndSchemeInformation.SchemeTerritory)
 }

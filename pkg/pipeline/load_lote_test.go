@@ -1,11 +1,9 @@
 package pipeline
 
 import (
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/sirosfoundation/g119612/pkg/etsi119602"
 	"github.com/stretchr/testify/assert"
@@ -15,15 +13,27 @@ import (
 func TestLoadLoTE_FromFile(t *testing.T) {
 	dir := t.TempDir()
 	lote := &etsi119602.ListOfTrustedEntities{
-		Version: "1.0",
-		SchemeInformation: etsi119602.SchemeInformation{
-			Territory: "SE",
+		ListAndSchemeInformation: etsi119602.ListAndSchemeInformation{
+			LoTEVersionIdentifier: 1,
+			SchemeTerritory:       "SE",
+			SchemeOperatorName:    etsi119602.NameSet{{Lang: "en", Value: "Test"}},
+			ListIssueDateTime:     "2026-01-01T00:00:00Z",
+			NextUpdate:            "2027-01-01T00:00:00Z",
 		},
-		TrustedEntities: []etsi119602.TrustedEntity{
-			{EntityID: "https://test.example.com"},
+		TrustedEntitiesList: []etsi119602.TrustedEntity{
+			{
+				TrustedEntityInformation: etsi119602.TrustedEntityInformation{
+					TEName: etsi119602.NameSet{{Lang: "en", Value: "https://test.example.com"}},
+				},
+				TrustedEntityServices: []etsi119602.TrustedEntityService{{
+					ServiceInformation: etsi119602.ServiceInformation{
+						ServiceName: etsi119602.NameSet{{Lang: "en", Value: "Svc"}},
+					},
+				}},
+			},
 		},
 	}
-	data, err := json.Marshal(lote)
+	data, err := lote.MarshalIndent()
 	require.NoError(t, err)
 
 	path := filepath.Join(dir, "test-lote.json")
@@ -36,8 +46,8 @@ func TestLoadLoTE_FromFile(t *testing.T) {
 	assert.Equal(t, 1, ctx.GetLoTECount())
 	loaded := ctx.GetLoTEs()
 	require.Len(t, loaded, 1)
-	assert.Equal(t, "SE", loaded[0].SchemeInformation.Territory)
-	assert.Len(t, loaded[0].TrustedEntities, 1)
+	assert.Equal(t, "SE", loaded[0].ListAndSchemeInformation.SchemeTerritory)
+	assert.Len(t, loaded[0].TrustedEntitiesList, 1)
 }
 
 func TestLoadLoTE_MissingArgs(t *testing.T) {
@@ -68,15 +78,26 @@ func TestLoadLoTE_XMLFile(t *testing.T) {
 
 	// Create a valid LoTE, encode to XML
 	lote := &etsi119602.ListOfTrustedEntities{
-		Version: etsi119602.LoTEVersion,
-		SchemeInformation: etsi119602.SchemeInformation{
-			Territory:      "SE",
-			SchemeOperator: etsi119602.NameSet{{Language: "en", Value: "XML Test"}},
-			SchemeType:     "http://example.com/type",
-			IssueDate:      time.Now().UTC(),
+		ListAndSchemeInformation: etsi119602.ListAndSchemeInformation{
+			LoTEVersionIdentifier: 1,
+			SchemeTerritory:       "SE",
+			SchemeOperatorName:    etsi119602.NameSet{{Lang: "en", Value: "XML Test"}},
+			LoTEType:              "http://example.com/type",
+			ListIssueDateTime:     "2026-01-01T00:00:00Z",
+			NextUpdate:            "2027-01-01T00:00:00Z",
 		},
-		TrustedEntities: []etsi119602.TrustedEntity{
-			{EntityID: "https://example.com", EntityStatus: etsi119602.StatusGranted},
+		TrustedEntitiesList: []etsi119602.TrustedEntity{
+			{
+				TrustedEntityInformation: etsi119602.TrustedEntityInformation{
+					TEName: etsi119602.NameSet{{Lang: "en", Value: "Entity"}},
+				},
+				TrustedEntityServices: []etsi119602.TrustedEntityService{{
+					ServiceInformation: etsi119602.ServiceInformation{
+						ServiceName:   etsi119602.NameSet{{Lang: "en", Value: "Svc"}},
+						ServiceStatus: etsi119602.StatusGranted,
+					},
+				}},
+			},
 		},
 	}
 	xmlData, err := lote.EncodeXML()
@@ -92,8 +113,8 @@ func TestLoadLoTE_XMLFile(t *testing.T) {
 	assert.Equal(t, 1, ctx.GetLoTECount())
 	loaded := ctx.GetLoTEs()
 	require.Len(t, loaded, 1)
-	assert.Equal(t, "SE", loaded[0].SchemeInformation.Territory)
-	assert.Equal(t, "XML Test", loaded[0].SchemeInformation.SchemeOperator.Get("en", ""))
+	assert.Equal(t, "SE", loaded[0].ListAndSchemeInformation.SchemeTerritory)
+	assert.Equal(t, "XML Test", loaded[0].ListAndSchemeInformation.SchemeOperatorName.Get("en", ""))
 }
 
 func TestLoadLoTE_IDUnionXML(t *testing.T) {
@@ -110,7 +131,7 @@ func TestLoadLoTE_IDUnionXML(t *testing.T) {
 	assert.Equal(t, 1, ctx.GetLoTECount())
 	loaded := ctx.GetLoTEs()
 	require.Len(t, loaded, 1)
-	assert.GreaterOrEqual(t, len(loaded[0].TrustedEntities), 1)
+	assert.GreaterOrEqual(t, len(loaded[0].TrustedEntitiesList), 1)
 }
 
 func TestLoadLoTE_AutoClassifiesLoTL(t *testing.T) {
@@ -118,18 +139,19 @@ func TestLoadLoTE_AutoClassifiesLoTL(t *testing.T) {
 
 	// Create a document with LoTL scheme type — should go to LoTLs stack
 	lote := &etsi119602.ListOfTrustedEntities{
-		Version: etsi119602.LoTEVersion,
-		SchemeInformation: etsi119602.SchemeInformation{
-			Territory:      "EU",
-			SchemeOperator: etsi119602.NameSet{{Language: "en", Value: "EC"}},
-			SchemeType:     etsi119602.LoTLTypeEU,
-			IssueDate:      time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
-		},
-		PointersToOtherLoTEs: []etsi119602.LoTEPointer{
-			{Location: "https://example.com/lote.json"},
+		ListAndSchemeInformation: etsi119602.ListAndSchemeInformation{
+			LoTEVersionIdentifier: 1,
+			SchemeTerritory:       "EU",
+			SchemeOperatorName:    etsi119602.NameSet{{Lang: "en", Value: "EC"}},
+			LoTEType:              etsi119602.LoTLTypeEU,
+			ListIssueDateTime:     "2026-01-01T00:00:00Z",
+			NextUpdate:            "2027-01-01T00:00:00Z",
+			PointersToOtherLoTE: []etsi119602.OtherLoTEPointer{
+				{LoTELocation: "https://example.com/lote.json"},
+			},
 		},
 	}
-	data, err := json.Marshal(lote)
+	data, err := lote.MarshalIndent()
 	require.NoError(t, err)
 
 	path := filepath.Join(dir, "lotl.json")
@@ -144,6 +166,6 @@ func TestLoadLoTE_AutoClassifiesLoTL(t *testing.T) {
 	assert.Equal(t, 1, ctx.GetLoTLCount())
 	lotls := ctx.GetLoTLs()
 	require.Len(t, lotls, 1)
-	assert.Equal(t, "EU", lotls[0].SchemeInformation.Territory)
-	assert.Len(t, lotls[0].PointersToOtherLoTEs, 1)
+	assert.Equal(t, "EU", lotls[0].ListAndSchemeInformation.SchemeTerritory)
+	assert.Len(t, lotls[0].ListAndSchemeInformation.PointersToOtherLoTE, 1)
 }

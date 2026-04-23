@@ -1,34 +1,40 @@
 package pipeline
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/sirosfoundation/g119612/pkg/etsi119602"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
+func makeTestLoTL(territory string, pointers ...etsi119602.OtherLoTEPointer) *etsi119602.ListOfTrustedLists {
+	return &etsi119602.ListOfTrustedLists{
+		ListAndSchemeInformation: etsi119602.ListAndSchemeInformation{
+			LoTEVersionIdentifier: 1,
+			SchemeTerritory:       territory,
+			SchemeOperatorName:    etsi119602.NameSet{{Lang: "en", Value: "Test"}},
+			LoTEType:              etsi119602.LoTLTypeEU,
+			ListIssueDateTime:     "2026-01-01T00:00:00Z",
+			NextUpdate:            "2027-01-01T00:00:00Z",
+			PointersToOtherLoTE:   pointers,
+		},
+	}
+}
+
 func TestLoadLoTL_FromJSONFile(t *testing.T) {
 	dir := t.TempDir()
 
-	lotl := &etsi119602.ListOfTrustedLists{
-		Version: etsi119602.LoTEVersion,
-		SchemeInformation: etsi119602.SchemeInformation{
-			Territory:      "EU",
-			SchemeOperator: etsi119602.NameSet{{Language: "en", Value: "Test"}},
-			SchemeType:     etsi119602.LoTLTypeEU,
-			IssueDate:      time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
-		},
-		PointersToOtherLoTEs: []etsi119602.LoTEPointer{
-			{Location: "https://example.com/lote.json", SchemeType: etsi119602.LoTETypePIDProviders},
-		},
-	}
-	data, err := json.Marshal(lotl)
+	lotl := makeTestLoTL("EU", etsi119602.OtherLoTEPointer{
+		LoTELocation: "https://example.com/lote.json",
+		LoTEQualifiers: []etsi119602.LoTEQualifier{{
+			LoTEType: etsi119602.LoTETypePIDProviders,
+		}},
+	})
+	data, err := lotl.MarshalLoTLIndent()
 	require.NoError(t, err)
 
 	path := filepath.Join(dir, "lotl.json")
@@ -41,26 +47,16 @@ func TestLoadLoTL_FromJSONFile(t *testing.T) {
 	assert.Equal(t, 1, ctx.GetLoTLCount())
 	loaded := ctx.GetLoTLs()
 	require.Len(t, loaded, 1)
-	assert.Equal(t, "EU", loaded[0].SchemeInformation.Territory)
-	assert.Len(t, loaded[0].PointersToOtherLoTEs, 1)
+	assert.Equal(t, "EU", loaded[0].ListAndSchemeInformation.SchemeTerritory)
+	assert.Len(t, loaded[0].ListAndSchemeInformation.PointersToOtherLoTE, 1)
 }
 
 func TestLoadLoTL_FromXMLFile(t *testing.T) {
 	dir := t.TempDir()
 
-	// Create a LoTL, encode to XML, then load it back
-	lotl := &etsi119602.ListOfTrustedLists{
-		Version: etsi119602.LoTEVersion,
-		SchemeInformation: etsi119602.SchemeInformation{
-			Territory:      "EU",
-			SchemeOperator: etsi119602.NameSet{{Language: "en", Value: "XML Operator"}},
-			SchemeType:     etsi119602.LoTLTypeEU,
-			IssueDate:      time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
-		},
-		PointersToOtherLoTEs: []etsi119602.LoTEPointer{
-			{Location: "https://example.com/lote.json"},
-		},
-	}
+	lotl := makeTestLoTL("EU", etsi119602.OtherLoTEPointer{
+		LoTELocation: "https://example.com/lote.json",
+	})
 	xmlData, err := lotl.EncodeXML()
 	require.NoError(t, err)
 
@@ -74,7 +70,7 @@ func TestLoadLoTL_FromXMLFile(t *testing.T) {
 	assert.Equal(t, 1, ctx.GetLoTLCount())
 	loaded := ctx.GetLoTLs()
 	require.Len(t, loaded, 1)
-	assert.Equal(t, "EU", loaded[0].SchemeInformation.Territory)
+	assert.Equal(t, "EU", loaded[0].ListAndSchemeInformation.SchemeTerritory)
 }
 
 func TestLoadLoTL_MissingArgs(t *testing.T) {
@@ -104,16 +100,8 @@ func TestLoadLoTL_MultipleLoads(t *testing.T) {
 	dir := t.TempDir()
 
 	for i, territory := range []string{"EU", "SE"} {
-		lotl := &etsi119602.ListOfTrustedLists{
-			Version: etsi119602.LoTEVersion,
-			SchemeInformation: etsi119602.SchemeInformation{
-				Territory:      territory,
-				SchemeOperator: etsi119602.NameSet{{Language: "en", Value: "Op"}},
-				SchemeType:     etsi119602.LoTLTypeEU,
-				IssueDate:      time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
-			},
-		}
-		data, err := json.Marshal(lotl)
+		lotl := makeTestLoTL(territory)
+		data, err := lotl.MarshalLoTLIndent()
 		require.NoError(t, err)
 		path := filepath.Join(dir, fmt.Sprintf("lotl-%d.json", i))
 		require.NoError(t, os.WriteFile(path, data, 0644))
