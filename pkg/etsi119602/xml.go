@@ -436,8 +436,6 @@ func xmlToTrustedEntity(te *xmltypes.TEType) TrustedEntity {
 
 // --- Service conversion ---
 
-
-
 func entityServiceToXML(s TrustedEntityService) *xmltypes.TrustedEntityServiceType {
 	svc := &xmltypes.TrustedEntityServiceType{
 		LoteServiceInformation: &xmltypes.TEServiceInformationType{

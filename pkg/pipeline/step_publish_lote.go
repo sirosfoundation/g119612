@@ -77,89 +77,89 @@ func PublishLoTE(pl *Pipeline, ctx *Context, args ...string) (*Context, error) {
 		}
 	} else {
 
-	// Validate all LoTEs before writing anything
-	lotes := ctx.LoTEs.ToSlice()
-	for i, lote := range lotes {
-		if err := lote.Validate(); err != nil {
-			return nil, fmt.Errorf("LoTE %d failed validation: %w", i, err)
-		}
-	}
-
-	usedFilenames := make(map[string]bool)
-	for i, lote := range lotes {
-		filename := loteFilename(lote, i)
-		// Prevent filename collisions
-		if usedFilenames[filename] {
-			filename = fmt.Sprintf("lote-%s-%d.json", lote.ListAndSchemeInformation.SchemeTerritory, i)
-		}
-		usedFilenames[filename] = true
-
-		// JSON output (unless xml-only)
-		if !xmlOnly {
-			jsonData, err := lote.MarshalIndent()
-			if err != nil {
-				return nil, fmt.Errorf("failed to marshal LoTE %d: %w", i, err)
+		// Validate all LoTEs before writing anything
+		lotes := ctx.LoTEs.ToSlice()
+		for i, lote := range lotes {
+			if err := lote.Validate(); err != nil {
+				return nil, fmt.Errorf("LoTE %d failed validation: %w", i, err)
 			}
+		}
 
-			outputPath := filepath.Join(outputDir, filename)
+		usedFilenames := make(map[string]bool)
+		for i, lote := range lotes {
+			filename := loteFilename(lote, i)
+			// Prevent filename collisions
+			if usedFilenames[filename] {
+				filename = fmt.Sprintf("lote-%s-%d.json", lote.ListAndSchemeInformation.SchemeTerritory, i)
+			}
+			usedFilenames[filename] = true
 
-			if signer != nil {
-				compact, err := signer.Sign(jsonData)
+			// JSON output (unless xml-only)
+			if !xmlOnly {
+				jsonData, err := lote.MarshalIndent()
 				if err != nil {
-					return nil, fmt.Errorf("failed to sign LoTE %d: %w", i, err)
+					return nil, fmt.Errorf("failed to marshal LoTE %d: %w", i, err)
 				}
-				if err := os.WriteFile(outputPath+".jws", []byte(compact), 0640); err != nil {
-					return nil, fmt.Errorf("failed to write signed LoTE: %w", err)
+
+				outputPath := filepath.Join(outputDir, filename)
+
+				if signer != nil {
+					compact, err := signer.Sign(jsonData)
+					if err != nil {
+						return nil, fmt.Errorf("failed to sign LoTE %d: %w", i, err)
+					}
+					if err := os.WriteFile(outputPath+".jws", []byte(compact), 0640); err != nil {
+						return nil, fmt.Errorf("failed to write signed LoTE: %w", err)
+					}
+					if pl != nil && pl.Logger != nil {
+						pl.Logger.Info("Published signed LoTE",
+							logging.F("path", outputPath+".jws"),
+							logging.F("entities", len(lote.TrustedEntitiesList)))
+					}
+				}
+
+				// Always write unsigned JSON too
+				if err := os.WriteFile(outputPath, jsonData, 0640); err != nil {
+					return nil, fmt.Errorf("failed to write LoTE: %w", err)
 				}
 				if pl != nil && pl.Logger != nil {
-					pl.Logger.Info("Published signed LoTE",
-						logging.F("path", outputPath+".jws"),
+					pl.Logger.Info("Published LoTE (JSON)",
+						logging.F("path", outputPath),
 						logging.F("entities", len(lote.TrustedEntitiesList)))
 				}
 			}
 
-			// Always write unsigned JSON too
-			if err := os.WriteFile(outputPath, jsonData, 0640); err != nil {
-				return nil, fmt.Errorf("failed to write LoTE: %w", err)
-			}
-			if pl != nil && pl.Logger != nil {
-				pl.Logger.Info("Published LoTE (JSON)",
-					logging.F("path", outputPath),
-					logging.F("entities", len(lote.TrustedEntitiesList)))
-			}
-		}
+			// XML output
+			if wantXML {
+				xmlFilename := strings.TrimSuffix(filename, ".json") + ".xml"
+				xmlPath := filepath.Join(outputDir, xmlFilename)
 
-		// XML output
-		if wantXML {
-			xmlFilename := strings.TrimSuffix(filename, ".json") + ".xml"
-			xmlPath := filepath.Join(outputDir, xmlFilename)
-
-			xmlData, err := lote.EncodeXML()
-			if err != nil {
-				return nil, fmt.Errorf("failed to marshal LoTE %d to XML: %w", i, err)
-			}
-
-			if xmlSigner != nil {
-				signed, err := xmlSigner.Sign(xmlData)
+				xmlData, err := lote.EncodeXML()
 				if err != nil {
-					return nil, fmt.Errorf("failed to sign LoTE %d (XAdES): %w", i, err)
+					return nil, fmt.Errorf("failed to marshal LoTE %d to XML: %w", i, err)
 				}
-				if err := os.WriteFile(xmlPath, signed, 0640); err != nil {
-					return nil, fmt.Errorf("failed to write signed LoTE XML: %w", err)
+
+				if xmlSigner != nil {
+					signed, err := xmlSigner.Sign(xmlData)
+					if err != nil {
+						return nil, fmt.Errorf("failed to sign LoTE %d (XAdES): %w", i, err)
+					}
+					if err := os.WriteFile(xmlPath, signed, 0640); err != nil {
+						return nil, fmt.Errorf("failed to write signed LoTE XML: %w", err)
+					}
+				} else {
+					fullXML := append([]byte("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"), xmlData...)
+					if err := os.WriteFile(xmlPath, fullXML, 0640); err != nil {
+						return nil, fmt.Errorf("failed to write LoTE XML: %w", err)
+					}
 				}
-			} else {
-				fullXML := append([]byte("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"), xmlData...)
-				if err := os.WriteFile(xmlPath, fullXML, 0640); err != nil {
-					return nil, fmt.Errorf("failed to write LoTE XML: %w", err)
+				if pl != nil && pl.Logger != nil {
+					pl.Logger.Info("Published LoTE (XML)",
+						logging.F("path", xmlPath),
+						logging.F("entities", len(lote.TrustedEntitiesList)))
 				}
-			}
-			if pl != nil && pl.Logger != nil {
-				pl.Logger.Info("Published LoTE (XML)",
-					logging.F("path", xmlPath),
-					logging.F("entities", len(lote.TrustedEntitiesList)))
 			}
 		}
-	}
 	} // end LoTEs block
 
 	// Publish LoTLs from context
