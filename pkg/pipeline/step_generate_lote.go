@@ -120,7 +120,7 @@ func GenerateLoTE(pl *Pipeline, ctx *Context, args ...string) (*Context, error) 
 		}
 
 		entityDir := filepath.Join(entitiesDir, entry.Name())
-		entity, err := loadLoTEEntity(entityDir)
+		entity, err := loadLoTEEntity(entityDir, scheme.SchemeType)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load entity %s: %w", entry.Name(), err)
 		}
@@ -138,7 +138,7 @@ func GenerateLoTE(pl *Pipeline, ctx *Context, args ...string) (*Context, error) 
 	return ctx, nil
 }
 
-func loadLoTEEntity(entityDir string) (*etsi119602.TrustedEntity, error) {
+func loadLoTEEntity(entityDir string, schemeType string) (*etsi119602.TrustedEntity, error) {
 	// Load entity metadata
 	metaData, err := os.ReadFile(filepath.Join(entityDir, "entity.yaml"))
 	if err != nil {
@@ -151,6 +151,10 @@ func loadLoTEEntity(entityDir string) (*etsi119602.TrustedEntity, error) {
 	if len(meta.Names) == 0 {
 		return nil, fmt.Errorf("entity.yaml must have at least one name")
 	}
+
+	// Per ETSI TS 119 602 Annexes D–I: only Pub-EAA uses explicit ServiceStatus.
+	// For all other profiles, presence in the list = trusted (ServiceStatus forbidden).
+	useServiceStatus := etsi119602.IsPubEAASchemeType(schemeType)
 	if meta.Status == "" {
 		meta.Status = etsi119602.StatusGranted
 	}
@@ -219,24 +223,34 @@ func loadLoTEEntity(entityDir string) (*etsi119602.TrustedEntity, error) {
 
 	// Convert service metadata
 	for _, svc := range meta.Services {
+		si := etsi119602.ServiceInformation{
+			ServiceTypeIdentifier:  svc.ServiceType,
+			ServiceName:            multiLangToNameSet(svc.ServiceNames),
+			ServiceDigitalIdentity: sdi,
+		}
+		if useServiceStatus {
+			status := svc.Status
+			if status == "" {
+				status = meta.Status
+			}
+			si.ServiceStatus = status
+		}
 		entity.TrustedEntityServices = append(entity.TrustedEntityServices, etsi119602.TrustedEntityService{
-			ServiceInformation: etsi119602.ServiceInformation{
-				ServiceTypeIdentifier:  svc.ServiceType,
-				ServiceName:            multiLangToNameSet(svc.ServiceNames),
-				ServiceStatus:          svc.Status,
-				ServiceDigitalIdentity: sdi,
-			},
+			ServiceInformation: si,
 		})
 	}
 
 	// If no services defined, create a default service from the entity-level identities
 	if len(entity.TrustedEntityServices) == 0 {
+		si := etsi119602.ServiceInformation{
+			ServiceName:            multiLangToNameSet(meta.Names),
+			ServiceDigitalIdentity: sdi,
+		}
+		if useServiceStatus {
+			si.ServiceStatus = meta.Status
+		}
 		entity.TrustedEntityServices = []etsi119602.TrustedEntityService{{
-			ServiceInformation: etsi119602.ServiceInformation{
-				ServiceName:            multiLangToNameSet(meta.Names),
-				ServiceStatus:          meta.Status,
-				ServiceDigitalIdentity: sdi,
-			},
+			ServiceInformation: si,
 		}}
 	}
 

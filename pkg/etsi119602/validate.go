@@ -9,9 +9,18 @@ func (l *ListOfTrustedEntities) Validate() error {
 	if err := l.ListAndSchemeInformation.validate(); err != nil {
 		return fmt.Errorf("ListAndSchemeInformation: %w", err)
 	}
+	isPubEAA := IsPubEAASchemeType(l.ListAndSchemeInformation.LoTEType)
 	for i, entity := range l.TrustedEntitiesList {
 		if err := entity.validate(); err != nil {
 			return fmt.Errorf("TrustedEntitiesList[%d]: %w", i, err)
+		}
+		for j, svc := range entity.TrustedEntityServices {
+			if isPubEAA && svc.ServiceInformation.ServiceStatus == "" {
+				return fmt.Errorf("TrustedEntitiesList[%d].TrustedEntityServices[%d]: ServiceStatus is required for Pub-EAA profile", i, j)
+			}
+			if !isPubEAA && svc.ServiceInformation.ServiceStatus != "" {
+				return fmt.Errorf("TrustedEntitiesList[%d].TrustedEntityServices[%d]: ServiceStatus must be absent for non-Pub-EAA profile (presence = trusted)", i, j)
+			}
 		}
 	}
 	for i, ptr := range l.ListAndSchemeInformation.PointersToOtherLoTE {

@@ -26,7 +26,7 @@ func TestXML_RoundTrip(t *testing.T) {
 	entity := parsed.TrustedEntitiesList[0]
 	assert.Equal(t, "Example Issuer", entity.TrustedEntityInformation.TEName.Get("en", ""))
 	require.Len(t, entity.TrustedEntityServices, 1)
-	assert.Equal(t, StatusGranted, entity.TrustedEntityServices[0].ServiceInformation.ServiceStatus)
+	assert.Equal(t, "", entity.TrustedEntityServices[0].ServiceInformation.ServiceStatus)
 }
 
 func TestXML_FileRoundTrip(t *testing.T) {

@@ -75,3 +75,29 @@ func TestValidate_PointerMissingLocation(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "LoTELocation")
 }
+
+func TestValidate_NonPubEAA_WithServiceStatus(t *testing.T) {
+	lote := testLoTE() // PID profile (non-PubEAA), no ServiceStatus
+	lote.TrustedEntitiesList[0].TrustedEntityServices[0].ServiceInformation.ServiceStatus = StatusGranted
+	err := lote.Validate()
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "must be absent for non-Pub-EAA")
+}
+
+func TestValidate_NonPubEAA_WithoutServiceStatus(t *testing.T) {
+	lote := testLoTE() // PID profile, no ServiceStatus — valid
+	assert.NoError(t, lote.Validate())
+}
+
+func TestValidate_PubEAA_WithServiceStatus(t *testing.T) {
+	lote := testLoTEPubEAA() // PubEAA with ServiceStatus — valid
+	assert.NoError(t, lote.Validate())
+}
+
+func TestValidate_PubEAA_WithoutServiceStatus(t *testing.T) {
+	lote := testLoTEPubEAA()
+	lote.TrustedEntitiesList[0].TrustedEntityServices[0].ServiceInformation.ServiceStatus = ""
+	err := lote.Validate()
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "ServiceStatus is required for Pub-EAA")
+}

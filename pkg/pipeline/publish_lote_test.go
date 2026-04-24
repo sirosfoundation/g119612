@@ -34,8 +34,7 @@ func testEntity() etsi119602.TrustedEntity {
 		},
 		TrustedEntityServices: []etsi119602.TrustedEntityService{{
 			ServiceInformation: etsi119602.ServiceInformation{
-				ServiceName:   etsi119602.NameSet{{Lang: "en", Value: "Svc"}},
-				ServiceStatus: etsi119602.StatusGranted,
+				ServiceName: etsi119602.NameSet{{Lang: "en", Value: "Svc"}},
 			},
 		}},
 	}

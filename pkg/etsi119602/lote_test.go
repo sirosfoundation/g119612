@@ -40,13 +40,20 @@ func testLoTE() *ListOfTrustedEntities {
 							},
 						},
 						ServiceTypeIdentifier: "credential-issuer",
-						ServiceStatus:         StatusGranted,
 						StatusStartingTime:    "2026-01-01T00:00:00Z",
 					},
 				}},
 			},
 		},
 	}
+}
+
+// testLoTEPubEAA returns a LoTE with the Pub-EAA profile (requires ServiceStatus).
+func testLoTEPubEAA() *ListOfTrustedEntities {
+	lote := testLoTE()
+	lote.ListAndSchemeInformation.LoTEType = LoTETypePubEAAProviders
+	lote.TrustedEntitiesList[0].TrustedEntityServices[0].ServiceInformation.ServiceStatus = StatusGranted
+	return lote
 }
 
 func TestParseLoTE_RoundTrip(t *testing.T) {
@@ -75,7 +82,7 @@ func TestParseLoTE_RoundTrip(t *testing.T) {
 	entity := parsed.TrustedEntitiesList[0]
 	assert.Equal(t, "Example Issuer", entity.TrustedEntityInformation.TEName.Get("en", ""))
 	require.Len(t, entity.TrustedEntityServices, 1)
-	assert.Equal(t, StatusGranted, entity.TrustedEntityServices[0].ServiceInformation.ServiceStatus)
+	assert.Equal(t, "", entity.TrustedEntityServices[0].ServiceInformation.ServiceStatus)
 }
 
 func TestParseLoTE_FromFile(t *testing.T) {
@@ -120,7 +127,7 @@ func TestNameSet_Get(t *testing.T) {
 }
 
 func TestLoTE_JSONFieldNames(t *testing.T) {
-	lote := testLoTE()
+	lote := testLoTEPubEAA() // Use PubEAA to get ServiceStatus in output
 	data, err := lote.MarshalIndent()
 	require.NoError(t, err)
 

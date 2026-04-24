@@ -43,6 +43,13 @@ func IsLoTLSchemeType(schemeType string) bool {
 	return strings.Contains(schemeType, "/LoTLType/")
 }
 
+// IsPubEAASchemeType returns true if the LoTE type is the Pub-EAA Providers profile.
+// Per ETSI TS 119 602 Annex H, only the Pub-EAA profile uses explicit ServiceStatus
+// (notified/withdrawn). All other profiles use implicit trust (presence = trusted).
+func IsPubEAASchemeType(schemeType string) bool {
+	return schemeType == LoTETypePubEAAProviders
+}
+
 // IsLoTL returns true if this LoTE is semantically a List of Trusted Lists.
 func (l *ListOfTrustedEntities) IsLoTL() bool {
 	return IsLoTLSchemeType(l.ListAndSchemeInformation.LoTEType)

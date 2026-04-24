@@ -13,6 +13,17 @@ func TestIsLoTLSchemeType(t *testing.T) {
 	assert.False(t, IsLoTLSchemeType(""))
 }
 
+func TestIsPubEAASchemeType(t *testing.T) {
+	assert.True(t, IsPubEAASchemeType(LoTETypePubEAAProviders))
+	assert.False(t, IsPubEAASchemeType(LoTETypePIDProviders))
+	assert.False(t, IsPubEAASchemeType(LoTETypeWalletProviders))
+	assert.False(t, IsPubEAASchemeType(LoTETypeWRPACProviders))
+	assert.False(t, IsPubEAASchemeType(LoTETypeWRPRCProviders))
+	assert.False(t, IsPubEAASchemeType(LoTETypeRegistrarsAndRegisters))
+	assert.False(t, IsPubEAASchemeType(LoTLTypeEU))
+	assert.False(t, IsPubEAASchemeType(""))
+}
+
 func TestLoTE_IsLoTL(t *testing.T) {
 	lotl := &ListOfTrustedEntities{
 		ListAndSchemeInformation: ListAndSchemeInformation{

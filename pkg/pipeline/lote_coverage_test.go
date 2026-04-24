@@ -59,7 +59,7 @@ func TestLoadLoTEEntity_WithPEM(t *testing.T) {
 	pemData := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw})
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "ca.pem"), pemData, 0600))
 
-	entity, err := loadLoTEEntity(dir)
+	entity, err := loadLoTEEntity(dir, etsi119602.LoTETypePIDProviders)
 	require.NoError(t, err)
 	assert.Equal(t, "Test Entity", entity.TrustedEntityInformation.TEName[0].Value)
 	require.Len(t, entity.TrustedEntityServices, 1)
@@ -74,7 +74,7 @@ func TestLoadLoTEEntity_WithCRT(t *testing.T) {
 	// Write raw DER as .crt
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "ca.crt"), cert.Raw, 0600))
 
-	entity, err := loadLoTEEntity(dir)
+	entity, err := loadLoTEEntity(dir, etsi119602.LoTETypePIDProviders)
 	require.NoError(t, err)
 	require.Len(t, entity.TrustedEntityServices, 1)
 	sdi := entity.TrustedEntityServices[0].ServiceInformation.ServiceDigitalIdentity
@@ -94,7 +94,7 @@ func TestLoadLoTEEntity_WithJWK(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "key.jwk"), jwkData, 0600))
 
-	entity, err := loadLoTEEntity(dir)
+	entity, err := loadLoTEEntity(dir, etsi119602.LoTETypePIDProviders)
 	require.NoError(t, err)
 	require.Len(t, entity.TrustedEntityServices, 1)
 	sdi := entity.TrustedEntityServices[0].ServiceInformation.ServiceDigitalIdentity
@@ -106,7 +106,7 @@ func TestLoadLoTEEntity_WithDID(t *testing.T) {
 	writeEntityYAML(t, dir, "DID Entity", "urn:test:did", etsi119602.StatusGranted)
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "identity.did"), []byte("did:web:example.com"), 0600))
 
-	entity, err := loadLoTEEntity(dir)
+	entity, err := loadLoTEEntity(dir, etsi119602.LoTETypePIDProviders)
 	require.NoError(t, err)
 	require.Len(t, entity.TrustedEntityServices, 1)
 	sdi := entity.TrustedEntityServices[0].ServiceInformation.ServiceDigitalIdentity
@@ -119,14 +119,14 @@ func TestLoadLoTEEntity_InvalidDID(t *testing.T) {
 	writeEntityYAML(t, dir, "Bad DID", "urn:test:bad-did", etsi119602.StatusGranted)
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "bad.did"), []byte("not-a-did"), 0600))
 
-	_, err := loadLoTEEntity(dir)
+	_, err := loadLoTEEntity(dir, etsi119602.LoTETypePIDProviders)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "must start with 'did:'")
 }
 
 func TestLoadLoTEEntity_MissingEntityYAML(t *testing.T) {
 	dir := t.TempDir()
-	_, err := loadLoTEEntity(dir)
+	_, err := loadLoTEEntity(dir, etsi119602.LoTETypePIDProviders)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to read entity.yaml")
 }
@@ -134,7 +134,7 @@ func TestLoadLoTEEntity_MissingEntityYAML(t *testing.T) {
 func TestLoadLoTEEntity_InvalidEntityYAML(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "entity.yaml"), []byte("not: [valid: yaml: !!"), 0600))
-	_, err := loadLoTEEntity(dir)
+	_, err := loadLoTEEntity(dir, etsi119602.LoTETypePIDProviders)
 	assert.Error(t, err)
 }
 
@@ -145,20 +145,30 @@ func TestLoadLoTEEntity_NoNames(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "entity.yaml"), data, 0600))
 
-	_, err = loadLoTEEntity(dir)
+	_, err = loadLoTEEntity(dir, etsi119602.LoTETypePIDProviders)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "must have at least one name")
 }
 
 func TestLoadLoTEEntity_DefaultStatus(t *testing.T) {
 	dir := t.TempDir()
-	// Write entity.yaml without status
+	// Write entity.yaml without status — use PubEAA to verify default status is set
 	content := "names:\n  - language: en\n    value: Default Status\nentityId: urn:test:default\n"
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "entity.yaml"), []byte(content), 0600))
 
-	entity, err := loadLoTEEntity(dir)
+	entity, err := loadLoTEEntity(dir, etsi119602.LoTETypePubEAAProviders)
 	require.NoError(t, err)
 	assert.Equal(t, etsi119602.StatusGranted, entity.TrustedEntityServices[0].ServiceInformation.ServiceStatus)
+}
+
+func TestLoadLoTEEntity_NonPubEAA_OmitsServiceStatus(t *testing.T) {
+	dir := t.TempDir()
+	content := "names:\n  - language: en\n    value: PID Entity\nentityId: urn:test:pid\nstatus: http://uri.etsi.org/TrstSvc/TrustedList/Svcstatus/granted\n"
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "entity.yaml"), []byte(content), 0600))
+
+	entity, err := loadLoTEEntity(dir, etsi119602.LoTETypePIDProviders)
+	require.NoError(t, err)
+	assert.Empty(t, entity.TrustedEntityServices[0].ServiceInformation.ServiceStatus)
 }
 
 func TestLoadLoTEEntity_WithServices(t *testing.T) {
@@ -177,7 +187,7 @@ services:
 `
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "entity.yaml"), []byte(content), 0600))
 
-	entity, err := loadLoTEEntity(dir)
+	entity, err := loadLoTEEntity(dir, etsi119602.LoTETypePIDProviders)
 	require.NoError(t, err)
 	require.Len(t, entity.TrustedEntityServices, 1)
 	assert.Equal(t, "http://type/test", entity.TrustedEntityServices[0].ServiceInformation.ServiceTypeIdentifier)

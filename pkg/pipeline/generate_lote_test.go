@@ -69,6 +69,8 @@ informationURI:
 	assert.Equal(t, "https://issuer.example.com", lote.TrustedEntitiesList[0].TrustedEntityInformation.TEInformationURI[0].URIValue)
 	require.NotEmpty(t, lote.TrustedEntitiesList[0].TrustedEntityServices)
 	assert.NotEmpty(t, lote.TrustedEntitiesList[0].TrustedEntityServices[0].ServiceInformation.ServiceDigitalIdentity.PublicKeyValues)
+	// Non-PubEAA profile: ServiceStatus should be absent (empty string → omitted in JSON)
+	assert.Empty(t, lote.TrustedEntitiesList[0].TrustedEntityServices[0].ServiceInformation.ServiceStatus)
 }
 
 func TestGenerateLoTE_EmptyEntities(t *testing.T) {
@@ -162,4 +164,101 @@ services:
 	lote := ctx.GetLoTEs()[0]
 	require.Len(t, lote.TrustedEntitiesList, 1)
 	assert.Len(t, lote.TrustedEntitiesList[0].TrustedEntityServices, 2)
+	// Non-PubEAA: services should have no ServiceStatus
+	assert.Empty(t, lote.TrustedEntitiesList[0].TrustedEntityServices[0].ServiceInformation.ServiceStatus)
+	assert.Empty(t, lote.TrustedEntitiesList[0].TrustedEntityServices[1].ServiceInformation.ServiceStatus)
+}
+
+func TestGenerateLoTE_PubEAA_IncludesServiceStatus(t *testing.T) {
+	dir := t.TempDir()
+
+	schemeYAML := `operatorNames:
+  - language: en
+    value: "Pub-EAA Operator"
+schemeType: "http://uri.etsi.org/19602/LoTEType/EUPubEAAProvidersList"
+territory: SE
+`
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "scheme.yaml"), []byte(schemeYAML), 0644))
+
+	entityDir := filepath.Join(dir, "entities", "e1")
+	require.NoError(t, os.MkdirAll(entityDir, 0755))
+
+	entityYAML := `names:
+  - language: en
+    value: "PubEAA Entity"
+entityId: "https://pubeaa.example.com"
+status: "http://uri.etsi.org/TrstSvc/TrustedList/Svcstatus/granted"
+address:
+  postal:
+    streetAddress: "1 Main St"
+    locality: "Stockholm"
+    countryName: "SE"
+  electronic:
+    - "mailto:pubeaa@example.com"
+informationURI:
+  - language: en
+    value: "https://pubeaa.example.com"
+services:
+  - serviceNames:
+      - language: en
+        value: "EAA Issuance"
+    serviceType: "http://uri.etsi.org/TrstSvc/Svctype/EAA"
+    status: "http://uri.etsi.org/TrstSvc/TrustedList/Svcstatus/granted"
+`
+	require.NoError(t, os.WriteFile(filepath.Join(entityDir, "entity.yaml"), []byte(entityYAML), 0644))
+
+	ctx := NewContext()
+	ctx, err := GenerateLoTE(nil, ctx, dir)
+	require.NoError(t, err)
+
+	lote := ctx.GetLoTEs()[0]
+	require.Len(t, lote.TrustedEntitiesList, 1)
+	require.Len(t, lote.TrustedEntitiesList[0].TrustedEntityServices, 1)
+	// PubEAA profile: ServiceStatus should be present
+	assert.Equal(t, "http://uri.etsi.org/TrstSvc/TrustedList/Svcstatus/granted",
+		lote.TrustedEntitiesList[0].TrustedEntityServices[0].ServiceInformation.ServiceStatus)
+}
+
+func TestGenerateLoTE_PubEAA_DefaultServiceStatus(t *testing.T) {
+	dir := t.TempDir()
+
+	schemeYAML := `operatorNames:
+  - language: en
+    value: "Pub-EAA Operator"
+schemeType: "http://uri.etsi.org/19602/LoTEType/EUPubEAAProvidersList"
+territory: SE
+`
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "scheme.yaml"), []byte(schemeYAML), 0644))
+
+	entityDir := filepath.Join(dir, "entities", "e1")
+	require.NoError(t, os.MkdirAll(entityDir, 0755))
+
+	// Entity with no explicit services → default service should get entity-level status
+	entityYAML := `names:
+  - language: en
+    value: "PubEAA Entity"
+entityId: "https://pubeaa.example.com"
+status: "http://uri.etsi.org/TrstSvc/TrustedList/Svcstatus/granted"
+address:
+  postal:
+    streetAddress: "1 Main St"
+    locality: "Stockholm"
+    countryName: "SE"
+  electronic:
+    - "mailto:pubeaa@example.com"
+informationURI:
+  - language: en
+    value: "https://pubeaa.example.com"
+`
+	require.NoError(t, os.WriteFile(filepath.Join(entityDir, "entity.yaml"), []byte(entityYAML), 0644))
+
+	ctx := NewContext()
+	ctx, err := GenerateLoTE(nil, ctx, dir)
+	require.NoError(t, err)
+
+	lote := ctx.GetLoTEs()[0]
+	require.Len(t, lote.TrustedEntitiesList, 1)
+	require.Len(t, lote.TrustedEntitiesList[0].TrustedEntityServices, 1)
+	assert.Equal(t, "http://uri.etsi.org/TrstSvc/TrustedList/Svcstatus/granted",
+		lote.TrustedEntitiesList[0].TrustedEntityServices[0].ServiceInformation.ServiceStatus)
 }
