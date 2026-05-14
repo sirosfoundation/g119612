@@ -207,18 +207,27 @@ func FetchTSLWithOptions(url string, options TSLFetchOptions) (*TSL, error) {
 			maxBody = 10 << 20 // 10 MB default
 		}
 
-		// Create a context for the overall fetch (including retries)
-		ctx, cancel := context.WithTimeout(context.Background(), options.Timeout)
-		defer cancel()
-
 		retryCfg := resilience.Config{
 			MaxAttempts:    options.MaxAttempts,
 			RetryBaseDelay: options.RetryBaseDelay,
 			MaxBodyBytes:   maxBody,
+		}.WithDefaults()
+
+		// Overall context accounts for all attempts + backoff.
+		perAttemptTimeout := options.Timeout
+		if perAttemptTimeout <= 0 {
+			perAttemptTimeout = 30 * time.Second
 		}
+		overallTimeout := perAttemptTimeout * time.Duration(retryCfg.MaxAttempts) * 2
+		ctx, cancel := context.WithTimeout(context.Background(), overallTimeout)
+		defer cancel()
 
 		err = resilience.DoWithRetry(ctx, retryCfg, func() error {
-			req, reqErr := http.NewRequestWithContext(ctx, "GET", url, nil)
+			// Per-attempt context so a single timeout doesn't exhaust the overall deadline.
+			attemptCtx, attemptCancel := context.WithTimeout(ctx, perAttemptTimeout)
+			defer attemptCancel()
+
+			req, reqErr := http.NewRequestWithContext(attemptCtx, "GET", url, nil)
 			if reqErr != nil {
 				return reqErr
 			}

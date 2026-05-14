@@ -247,20 +247,26 @@ func fetchRawWithContentType(url string, opts *FetchOptions, accept string) ([]b
 		}
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-
 	retryCfg := resilience.Config{
 		MaxAttempts:    maxAttempts,
 		RetryBaseDelay: retryBaseDelay,
 		MaxBodyBytes:   maxBody,
-	}
+	}.WithDefaults()
+
+	// Overall context accounts for all attempts + backoff.
+	overallTimeout := timeout * time.Duration(retryCfg.MaxAttempts) * 2
+	ctx, cancel := context.WithTimeout(context.Background(), overallTimeout)
+	defer cancel()
 
 	var body []byte
 	var ct string
 
 	err := resilience.DoWithRetry(ctx, retryCfg, func() error {
-		req, reqErr := http.NewRequestWithContext(ctx, "GET", url, nil)
+		// Per-attempt context so a single timeout doesn't exhaust the overall deadline.
+		attemptCtx, attemptCancel := context.WithTimeout(ctx, timeout)
+		defer attemptCancel()
+
+		req, reqErr := http.NewRequestWithContext(attemptCtx, "GET", url, nil)
 		if reqErr != nil {
 			return fmt.Errorf("failed to create request for %s: %w", url, reqErr)
 		}

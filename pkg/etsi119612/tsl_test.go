@@ -140,10 +140,11 @@ func TestFetchTSLWithOptions_Timeout(t *testing.T) {
 		Delay(200 * time.Millisecond). // Delay the response
 		File("./testdata/EWC-TL.xml")
 
-	// Use very short timeout (50ms)
+	// Use very short timeout (50ms) with no retries
 	options := etsi119612.TSLFetchOptions{
-		UserAgent: "TimeoutTest/1.0",
-		Timeout:   50 * time.Millisecond,
+		UserAgent:   "TimeoutTest/1.0",
+		Timeout:     50 * time.Millisecond,
+		MaxAttempts: 1,
 	}
 
 	// This should time out

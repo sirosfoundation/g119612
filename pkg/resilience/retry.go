@@ -33,8 +33,9 @@ func DefaultConfig() Config {
 	}
 }
 
-func (c *Config) withDefaults() Config {
-	out := *c
+// WithDefaults returns a copy of the config with zero fields set to defaults.
+func (c Config) WithDefaults() Config {
+	out := c
 	if out.MaxAttempts <= 0 {
 		out.MaxAttempts = 3
 	}
@@ -88,10 +89,10 @@ func IsRetryable(err error) bool {
 // after exponential backoff. Non-retryable errors (4xx, parse errors) fail
 // immediately.
 //
-// The context is checked between retries; if cancelled, the last error is
+// The context is checked between retries; if cancelled, the context error is
 // returned immediately.
 func DoWithRetry(ctx context.Context, cfg Config, fn func() error) error {
-	cfg = cfg.withDefaults()
+	cfg = cfg.WithDefaults()
 	var lastErr error
 	backoff := cfg.RetryBaseDelay
 

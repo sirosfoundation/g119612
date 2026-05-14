@@ -127,7 +127,7 @@ func TestIsRetryable(t *testing.T) {
 
 func TestConfig_Defaults(t *testing.T) {
 	cfg := Config{}
-	c := cfg.withDefaults()
+	c := cfg.WithDefaults()
 	if c.MaxAttempts != 3 {
 		t.Errorf("expected MaxAttempts=3, got %d", c.MaxAttempts)
 	}
