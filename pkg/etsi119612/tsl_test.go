@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sirosfoundation/g119612/pkg/etsi119612"
 	"github.com/h2non/gock"
+	"github.com/sirosfoundation/g119612/pkg/etsi119612"
 	"github.com/stretchr/testify/assert"
 )
 

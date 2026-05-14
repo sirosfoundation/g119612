@@ -9,13 +9,13 @@ type InternationalNamesType struct {
 
 // MultiLangNormStringType ...
 type MultiLangNormStringType struct {
-	XmlLangAttr *Lang `xml:"lang,attr"`
+	XmlLangAttr               *Lang `xml:"lang,attr"`
 	*NonEmptyNormalizedString `xml:",chardata"`
 }
 
 // MultiLangStringType ...
 type MultiLangStringType struct {
-	XmlLangAttr *Lang `xml:"lang,attr"`
+	XmlLangAttr     *Lang `xml:"lang,attr"`
 	*NonEmptyString `xml:",chardata"`
 }
 
