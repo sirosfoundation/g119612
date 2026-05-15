@@ -24,11 +24,11 @@ type LoTLSchemeMetadata struct {
 
 // LoTLPointerMeta represents a pointer entry in the LoTL YAML metadata.
 type LoTLPointerMeta struct {
-	Location             string          `yaml:"location"`
-	SchemeTerritory      string          `yaml:"schemeTerritory,omitempty"`
-	SchemeType           string          `yaml:"schemeType,omitempty"`
-	SchemeOperatorNames  []MultiLangName `yaml:"schemeOperatorNames,omitempty"`
-	MimeType             string          `yaml:"mimeType,omitempty"`
+	Location            string          `yaml:"location"`
+	SchemeTerritory     string          `yaml:"schemeTerritory,omitempty"`
+	SchemeType          string          `yaml:"schemeType,omitempty"`
+	SchemeOperatorNames []MultiLangName `yaml:"schemeOperatorNames,omitempty"`
+	MimeType            string          `yaml:"mimeType,omitempty"`
 }
 
 // GenerateLoTL generates a LoTL (List of Trusted Lists) from a YAML metadata file.

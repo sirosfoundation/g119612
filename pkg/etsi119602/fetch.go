@@ -2,6 +2,7 @@ package etsi119602
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -9,6 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/sirosfoundation/g119612/pkg/resilience"
 )
 
 // FetchOptions configures how LoTEs are fetched.
@@ -21,6 +24,19 @@ type FetchOptions struct {
 
 	// HTTPClient allows injecting a custom client (e.g., for testing).
 	HTTPClient *http.Client
+
+	// MaxAttempts is the maximum number of fetch attempts per URL (1 = no retry).
+	// Transient failures (transport errors, 5xx) are retried with exponential
+	// backoff; 4xx and parse errors fail immediately. Default: 3.
+	MaxAttempts int
+
+	// RetryBaseDelay is the initial backoff duration; doubled after each retry.
+	// Default: 500ms.
+	RetryBaseDelay time.Duration
+
+	// MaxBodyBytes limits the response body size. Returns an error if the
+	// response exceeds this limit. Default: 10MB.
+	MaxBodyBytes int64
 }
 
 // JWSVerifier verifies JWS compact serializations and returns the payload.
@@ -210,55 +226,97 @@ func fetchRawFromURL(url string, opts *FetchOptions, accept string) ([]byte, err
 
 func fetchRawWithContentType(url string, opts *FetchOptions, accept string) ([]byte, string, error) {
 	client := &http.Client{Timeout: 30 * time.Second}
+	timeout := 30 * time.Second
+	var maxAttempts int
+	var retryBaseDelay time.Duration
+	var maxBody int64 = 10 * 1024 * 1024 // 10MB default
+
 	if opts != nil {
 		if opts.HTTPClient != nil {
 			client = opts.HTTPClient
 		} else if opts.Timeout > 0 {
 			client.Timeout = opts.Timeout
 		}
+		if opts.Timeout > 0 {
+			timeout = opts.Timeout
+		}
+		maxAttempts = opts.MaxAttempts
+		retryBaseDelay = opts.RetryBaseDelay
+		if opts.MaxBodyBytes > 0 {
+			maxBody = opts.MaxBodyBytes
+		}
 	}
 
-	req, err := http.NewRequest("GET", url, nil)
+	retryCfg := resilience.Config{
+		MaxAttempts:    maxAttempts,
+		RetryBaseDelay: retryBaseDelay,
+		MaxBodyBytes:   maxBody,
+	}.WithDefaults()
+
+	// Overall context accounts for all attempts + backoff.
+	overallTimeout := timeout * time.Duration(retryCfg.MaxAttempts) * 2
+	ctx, cancel := context.WithTimeout(context.Background(), overallTimeout)
+	defer cancel()
+
+	var body []byte
+	var ct string
+
+	err := resilience.DoWithRetry(ctx, retryCfg, func() error {
+		// Per-attempt context so a single timeout doesn't exhaust the overall deadline.
+		attemptCtx, attemptCancel := context.WithTimeout(ctx, timeout)
+		defer attemptCancel()
+
+		req, reqErr := http.NewRequestWithContext(attemptCtx, "GET", url, nil)
+		if reqErr != nil {
+			return fmt.Errorf("failed to create request for %s: %w", url, reqErr)
+		}
+		req.Header.Set("Accept", accept)
+		if opts != nil && opts.UserAgent != "" {
+			req.Header.Set("User-Agent", opts.UserAgent)
+		}
+
+		resp, doErr := client.Do(req)
+		if doErr != nil {
+			return &resilience.TransportError{Err: fmt.Errorf("failed to fetch from %s: %w", url, doErr)}
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			return &resilience.HTTPStatusError{StatusCode: resp.StatusCode, URL: url}
+		}
+
+		ct = ""
+		if raw := resp.Header.Get("Content-Type"); raw != "" {
+			ct = strings.ToLower(strings.TrimSpace(strings.SplitN(raw, ";", 2)[0]))
+		}
+
+		// Reject clearly wrong content types
+		allowedTypes := map[string]bool{
+			"application/json":         true,
+			"application/jose":         true,
+			"application/xml":          true,
+			"text/xml":                 true,
+			"text/plain":               true,
+			"application/octet-stream": true,
+			"":                         true,
+		}
+		if !allowedTypes[ct] {
+			return fmt.Errorf("unexpected Content-Type %q fetching %s", ct, url)
+		}
+
+		body, doErr = io.ReadAll(io.LimitReader(resp.Body, maxBody+1))
+		if doErr != nil {
+			return &resilience.TransportError{Err: fmt.Errorf("failed to read response from %s: %w", url, doErr)}
+		}
+		if int64(len(body)) > maxBody {
+			return fmt.Errorf("response body from %s exceeds maximum size of %d bytes", url, maxBody)
+		}
+
+		return nil
+	})
+
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to create request for %s: %w", url, err)
-	}
-	req.Header.Set("Accept", accept)
-	if opts != nil && opts.UserAgent != "" {
-		req.Header.Set("User-Agent", opts.UserAgent)
-	}
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, "", fmt.Errorf("failed to fetch from %s: %w", url, err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, "", fmt.Errorf("unexpected status %d fetching %s", resp.StatusCode, url)
-	}
-
-	ct := ""
-	if raw := resp.Header.Get("Content-Type"); raw != "" {
-		ct = strings.ToLower(strings.TrimSpace(strings.SplitN(raw, ";", 2)[0]))
-	}
-
-	// Reject clearly wrong content types
-	allowedTypes := map[string]bool{
-		"application/json":         true,
-		"application/jose":         true,
-		"application/xml":          true,
-		"text/xml":                 true,
-		"text/plain":               true,
-		"application/octet-stream": true,
-		"":                         true,
-	}
-	if !allowedTypes[ct] {
-		return nil, "", fmt.Errorf("unexpected Content-Type %q fetching %s", ct, url)
-	}
-
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 10*1024*1024)) // 10MB limit
-	if err != nil {
-		return nil, "", fmt.Errorf("failed to read response from %s: %w", url, err)
+		return nil, "", err
 	}
 
 	return body, ct, nil

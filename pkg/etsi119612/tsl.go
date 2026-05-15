@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"github.com/moov-io/signedxml"
+	"github.com/sirosfoundation/g119612/pkg/resilience"
 	"github.com/sirosfoundation/go-cryptoutil"
 )
 
@@ -114,6 +115,19 @@ type TSLFetchOptions struct {
 	// This allows the caller to collect fetch errors for reporting.
 	// If nil, errors are only logged.
 	FetchErrorCallback func(url string, err error)
+
+	// MaxAttempts is the maximum number of fetch attempts per URL (1 = no retry).
+	// Transient failures (transport errors, 5xx) are retried with exponential
+	// backoff; 4xx and parse errors fail immediately. Default: 3.
+	MaxAttempts int
+
+	// RetryBaseDelay is the initial backoff duration; doubled after each retry.
+	// Default: 500ms.
+	RetryBaseDelay time.Duration
+
+	// MaxBodyBytes limits the response body size. Returns an error if the
+	// response exceeds this limit. Default: 10MB.
+	MaxBodyBytes int64
 }
 
 // DefaultTSLFetchOptions provides reasonable default options for fetching TSLs
@@ -187,36 +201,67 @@ func FetchTSLWithOptions(url string, options TSLFetchOptions) (*TSL, error) {
 			}
 		}
 
-		// Create request with context
-		ctx, cancel := context.WithTimeout(context.Background(), options.Timeout)
+		// Determine body size limit
+		maxBody := options.MaxBodyBytes
+		if maxBody <= 0 {
+			maxBody = 10 << 20 // 10 MB default
+		}
+
+		retryCfg := resilience.Config{
+			MaxAttempts:    options.MaxAttempts,
+			RetryBaseDelay: options.RetryBaseDelay,
+			MaxBodyBytes:   maxBody,
+		}.WithDefaults()
+
+		// Overall context accounts for all attempts + backoff.
+		perAttemptTimeout := options.Timeout
+		if perAttemptTimeout <= 0 {
+			perAttemptTimeout = 30 * time.Second
+		}
+		overallTimeout := perAttemptTimeout * time.Duration(retryCfg.MaxAttempts) * 2
+		ctx, cancel := context.WithTimeout(context.Background(), overallTimeout)
 		defer cancel()
 
-		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
-		if err != nil {
-			return nil, err
-		}
+		err = resilience.DoWithRetry(ctx, retryCfg, func() error {
+			// Per-attempt context so a single timeout doesn't exhaust the overall deadline.
+			attemptCtx, attemptCancel := context.WithTimeout(ctx, perAttemptTimeout)
+			defer attemptCancel()
 
-		// Set User-Agent header
-		req.Header.Set("User-Agent", options.UserAgent)
+			req, reqErr := http.NewRequestWithContext(attemptCtx, "GET", url, nil)
+			if reqErr != nil {
+				return reqErr
+			}
 
-		// Set Accept headers for content negotiation
-		if len(options.AcceptHeaders) > 0 {
-			req.Header.Set("Accept", strings.Join(options.AcceptHeaders, ", "))
-		}
+			// Set User-Agent header
+			req.Header.Set("User-Agent", options.UserAgent)
 
-		// Execute request
-		resp, err := client.Do(req)
-		if err != nil {
-			return nil, err
-		}
-		defer resp.Body.Close()
+			// Set Accept headers for content negotiation
+			if len(options.AcceptHeaders) > 0 {
+				req.Header.Set("Accept", strings.Join(options.AcceptHeaders, ", "))
+			}
 
-		// Check response status
-		if resp.StatusCode != http.StatusOK {
-			return nil, fmt.Errorf("unexpected HTTP status: %s", resp.Status)
-		}
+			// Execute request
+			resp, doErr := client.Do(req)
+			if doErr != nil {
+				return &resilience.TransportError{Err: doErr}
+			}
+			defer resp.Body.Close()
 
-		bodyBytes, err = io.ReadAll(resp.Body)
+			// Check response status
+			if resp.StatusCode != http.StatusOK {
+				return &resilience.HTTPStatusError{StatusCode: resp.StatusCode, URL: url}
+			}
+
+			bodyBytes, doErr = io.ReadAll(io.LimitReader(resp.Body, maxBody+1))
+			if doErr != nil {
+				return &resilience.TransportError{Err: fmt.Errorf("reading body: %w", doErr)}
+			}
+			if int64(len(bodyBytes)) > maxBody {
+				return fmt.Errorf("response body from %s exceeds maximum size of %d bytes", url, maxBody)
+			}
+			return nil
+		})
+
 		if err != nil {
 			return nil, err
 		}
