@@ -93,6 +93,9 @@ func GenerateLoTE(pl *Pipeline, ctx *Context, args ...string) (*Context, error) 
 	if validityDays <= 0 {
 		validityDays = 180
 	}
+	if validityDays > 3650 {
+		return nil, fmt.Errorf("validityDays too large: %d (max 3650)", validityDays)
+	}
 	nextUpdate := now.Add(time.Duration(validityDays) * 24 * time.Hour)
 	lote := &etsi119602.ListOfTrustedEntities{
 		ListAndSchemeInformation: etsi119602.ListAndSchemeInformation{

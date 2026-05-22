@@ -1,14 +1,12 @@
 package pipeline
 
 import (
-	"crypto/x509"
 	"encoding/base64"
-	"encoding/pem"
 	"fmt"
-	"time"
-
 	"os"
 	"path/filepath"
+	"strings"
+	"time"
 
 	"github.com/sirosfoundation/g119612/pkg/etsi119602"
 	"github.com/sirosfoundation/g119612/pkg/logging"
@@ -86,6 +84,9 @@ func GenerateLoTL(pl *Pipeline, ctx *Context, args ...string) (*Context, error) 
 	if validityDays <= 0 {
 		validityDays = 180
 	}
+	if validityDays > 3650 {
+		return nil, fmt.Errorf("validityDays too large: %d (max 3650)", validityDays)
+	}
 	nextUpdate := now.Add(time.Duration(validityDays) * 24 * time.Hour)
 	lotl := &etsi119602.ListOfTrustedLists{
 		ListAndSchemeInformation: etsi119602.ListAndSchemeInformation{
@@ -108,7 +109,8 @@ func GenerateLoTL(pl *Pipeline, ctx *Context, args ...string) (*Context, error) 
 		}
 
 		pointer := etsi119602.OtherLoTEPointer{
-			LoTELocation: pm.Location,
+			LoTELocation:              pm.Location,
+			ServiceDigitalIdentities: []etsi119602.ServiceDigitalIdentity{},
 			LoTEQualifiers: []etsi119602.LoTEQualifier{{
 				SchemeTerritory:    pm.SchemeTerritory,
 				LoTEType:           pm.SchemeType,
@@ -119,24 +121,22 @@ func GenerateLoTL(pl *Pipeline, ctx *Context, args ...string) (*Context, error) 
 
 		// Load signer certificates for the pointed-to list
 		for _, certFile := range pm.CertFiles {
-			certPath := certFile
-			if !filepath.IsAbs(certPath) {
-				certPath = filepath.Join(rootDir, certPath)
+			certPath := filepath.Clean(certFile)
+			if filepath.IsAbs(certPath) {
+				return nil, fmt.Errorf("absolute paths not allowed in certFiles: %s", certFile)
 			}
-			certData, err := os.ReadFile(certPath)
+			certPath = filepath.Join(rootDir, certPath)
+			// Ensure resolved path stays within rootDir
+			rel, err := filepath.Rel(rootDir, certPath)
+			if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+				return nil, fmt.Errorf("certFile path escapes root directory: %s", certFile)
+			}
+			derBytes, err := loadCertificateDER(certPath)
 			if err != nil {
-				return nil, fmt.Errorf("failed to read pointer cert file %s: %w", certFile, err)
-			}
-			block, _ := pem.Decode(certData)
-			if block == nil {
-				return nil, fmt.Errorf("failed to decode PEM from pointer cert file %s", certFile)
-			}
-			cert, err := x509.ParseCertificate(block.Bytes)
-			if err != nil {
-				return nil, fmt.Errorf("failed to parse certificate from %s: %w", certFile, err)
+				return nil, fmt.Errorf("failed to load pointer cert file %s: %w", certFile, err)
 			}
 			pointer.ServiceDigitalIdentities = append(pointer.ServiceDigitalIdentities, etsi119602.ServiceDigitalIdentity{
-				X509Certificates: []etsi119602.PKIOb{{Val: base64.StdEncoding.EncodeToString(cert.Raw)}},
+				X509Certificates: []etsi119602.PKIOb{{Val: base64.StdEncoding.EncodeToString(derBytes)}},
 			})
 		}
 

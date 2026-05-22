@@ -315,29 +315,29 @@ func ensureP1363Signature(raw []byte, pub crypto.PublicKey) ([]byte, error) {
 	}
 
 	var sig ecdsaDERSignature
-	if _, err := asn1.Unmarshal(raw, &sig); err != nil {
+	rest, err := asn1.Unmarshal(raw, &sig)
+	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal DER ECDSA signature: %w", err)
+	}
+	if len(rest) != 0 {
+		return nil, fmt.Errorf("trailing data after DER ECDSA signature")
+	}
+	if sig.R == nil || sig.S == nil {
+		return nil, fmt.Errorf("invalid ECDSA signature: missing r or s")
 	}
 
 	byteLen := (ecPub.Curve.Params().BitSize + 7) / 8
-	out := make([]byte, 2*byteLen)
-
 	rBytes := sig.R.Bytes()
 	sBytes := sig.S.Bytes()
+	if len(rBytes) > byteLen || len(sBytes) > byteLen {
+		return nil, fmt.Errorf("invalid ECDSA signature: r/s too large for curve")
+	}
+
+	out := make([]byte, 2*byteLen)
 	copy(out[byteLen-len(rBytes):byteLen], rBytes)
 	copy(out[2*byteLen-len(sBytes):], sBytes)
 
 	return out, nil
-}
-
-// curveByteLen returns the byte length of the curve order for an ECDSA public key.
-// Returns 0 for non-ECDSA keys.
-func curveByteLen(pub crypto.PublicKey) int {
-	ecPub, ok := pub.(*ecdsa.PublicKey)
-	if !ok {
-		return 0
-	}
-	return (ecPub.Curve.Params().BitSize + 7) / 8
 }
 
 // p1363ToDER converts an IEEE P1363 ECDSA signature (r||s) to DER/ASN.1 encoding.
