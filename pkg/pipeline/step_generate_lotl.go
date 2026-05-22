@@ -1,6 +1,9 @@
 package pipeline
 
 import (
+	"crypto/x509"
+	"encoding/base64"
+	"encoding/pem"
 	"fmt"
 	"time"
 
@@ -19,6 +22,7 @@ type LoTLSchemeMetadata struct {
 	SchemeType     string            `yaml:"schemeType"`
 	Territory      string            `yaml:"territory,omitempty"`
 	SequenceNumber int               `yaml:"sequenceNumber,omitempty"`
+	ValidityDays   int               `yaml:"validityDays,omitempty"`
 	Pointers       []LoTLPointerMeta `yaml:"pointers,omitempty"`
 }
 
@@ -29,6 +33,7 @@ type LoTLPointerMeta struct {
 	SchemeType          string          `yaml:"schemeType,omitempty"`
 	SchemeOperatorNames []MultiLangName `yaml:"schemeOperatorNames,omitempty"`
 	MimeType            string          `yaml:"mimeType,omitempty"`
+	CertFiles           []string        `yaml:"certFiles,omitempty"`
 }
 
 // GenerateLoTL generates a LoTL (List of Trusted Lists) from a YAML metadata file.
@@ -76,7 +81,12 @@ func GenerateLoTL(pl *Pipeline, ctx *Context, args ...string) (*Context, error) 
 		return nil, fmt.Errorf("lotl.yaml must have a schemeType")
 	}
 
-	now := time.Now().UTC().Format(time.RFC3339)
+	now := time.Now().UTC()
+	validityDays := meta.ValidityDays
+	if validityDays <= 0 {
+		validityDays = 180
+	}
+	nextUpdate := now.Add(time.Duration(validityDays) * 24 * time.Hour)
 	lotl := &etsi119602.ListOfTrustedLists{
 		ListAndSchemeInformation: etsi119602.ListAndSchemeInformation{
 			LoTEVersionIdentifier: 1,
@@ -85,8 +95,8 @@ func GenerateLoTL(pl *Pipeline, ctx *Context, args ...string) (*Context, error) 
 			SchemeName:            multiLangToNameSet(meta.SchemeName),
 			LoTEType:              meta.SchemeType,
 			LoTESequenceNumber:    meta.SequenceNumber,
-			ListIssueDateTime:     now,
-			NextUpdate:            now,
+			ListIssueDateTime:     now.Format(time.RFC3339),
+			NextUpdate:            nextUpdate.Format(time.RFC3339),
 		},
 	}
 
@@ -96,7 +106,8 @@ func GenerateLoTL(pl *Pipeline, ctx *Context, args ...string) (*Context, error) 
 		if mimeType == "" {
 			mimeType = "application/json"
 		}
-		lotl.ListAndSchemeInformation.PointersToOtherLoTE = append(lotl.ListAndSchemeInformation.PointersToOtherLoTE, etsi119602.OtherLoTEPointer{
+
+		pointer := etsi119602.OtherLoTEPointer{
 			LoTELocation: pm.Location,
 			LoTEQualifiers: []etsi119602.LoTEQualifier{{
 				SchemeTerritory:    pm.SchemeTerritory,
@@ -104,7 +115,32 @@ func GenerateLoTL(pl *Pipeline, ctx *Context, args ...string) (*Context, error) 
 				SchemeOperatorName: multiLangToNameSet(pm.SchemeOperatorNames),
 				MimeType:           mimeType,
 			}},
-		})
+		}
+
+		// Load signer certificates for the pointed-to list
+		for _, certFile := range pm.CertFiles {
+			certPath := certFile
+			if !filepath.IsAbs(certPath) {
+				certPath = filepath.Join(rootDir, certPath)
+			}
+			certData, err := os.ReadFile(certPath)
+			if err != nil {
+				return nil, fmt.Errorf("failed to read pointer cert file %s: %w", certFile, err)
+			}
+			block, _ := pem.Decode(certData)
+			if block == nil {
+				return nil, fmt.Errorf("failed to decode PEM from pointer cert file %s", certFile)
+			}
+			cert, err := x509.ParseCertificate(block.Bytes)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse certificate from %s: %w", certFile, err)
+			}
+			pointer.ServiceDigitalIdentities = append(pointer.ServiceDigitalIdentities, etsi119602.ServiceDigitalIdentity{
+				X509Certificates: []etsi119602.PKIOb{{Val: base64.StdEncoding.EncodeToString(cert.Raw)}},
+			})
+		}
+
+		lotl.ListAndSchemeInformation.PointersToOtherLoTE = append(lotl.ListAndSchemeInformation.PointersToOtherLoTE, pointer)
 	}
 
 	if pl != nil && pl.Logger != nil {

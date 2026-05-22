@@ -23,6 +23,7 @@ type LoTESchemeMetadata struct {
 	SchemeType     string          `yaml:"schemeType"`
 	Territory      string          `yaml:"territory,omitempty"`
 	SequenceNumber int             `yaml:"sequenceNumber,omitempty"`
+	ValidityDays   int             `yaml:"validityDays,omitempty"`
 }
 
 // LoTEEntityMetadata represents the YAML structure for a trusted entity.
@@ -87,7 +88,12 @@ func GenerateLoTE(pl *Pipeline, ctx *Context, args ...string) (*Context, error) 
 		return nil, fmt.Errorf("scheme.yaml must have a schemeType")
 	}
 
-	now := time.Now().UTC().Format(time.RFC3339)
+	now := time.Now().UTC()
+	validityDays := scheme.ValidityDays
+	if validityDays <= 0 {
+		validityDays = 180
+	}
+	nextUpdate := now.Add(time.Duration(validityDays) * 24 * time.Hour)
 	lote := &etsi119602.ListOfTrustedEntities{
 		ListAndSchemeInformation: etsi119602.ListAndSchemeInformation{
 			LoTEVersionIdentifier: 1,
@@ -96,8 +102,8 @@ func GenerateLoTE(pl *Pipeline, ctx *Context, args ...string) (*Context, error) 
 			SchemeName:            multiLangToNameSet(scheme.SchemeName),
 			LoTEType:              scheme.SchemeType,
 			LoTESequenceNumber:    scheme.SequenceNumber,
-			ListIssueDateTime:     now,
-			NextUpdate:            now,
+			ListIssueDateTime:     now.Format(time.RFC3339),
+			NextUpdate:            nextUpdate.Format(time.RFC3339),
 		},
 	}
 
