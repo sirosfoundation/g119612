@@ -7,12 +7,15 @@ package dsig
 import (
 	"crypto"
 	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/x509"
+	"encoding/asn1"
 	"encoding/base64"
 	"fmt"
+	"math/big"
 	"time"
 
 	"github.com/beevik/etree"
@@ -90,8 +93,15 @@ func SignXMLWithXAdES(xmlData []byte, signer crypto.Signer, cert *x509.Certifica
 		return nil, fmt.Errorf("failed to sign: %w", err)
 	}
 
+	// For ECDSA keys, convert DER-encoded signature to IEEE P1363 format (r||s)
+	// as required by XML-DSig (https://www.w3.org/TR/xmldsig-core1/#sec-ECDSA)
+	sigBytes, err := ensureP1363Signature(rawSignature, cert.PublicKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert ECDSA signature to P1363: %w", err)
+	}
+
 	// Build the complete Signature element
-	sig := buildSignatureElement(signedInfo, rawSignature, cert, object, sigID)
+	sig := buildSignatureElement(signedInfo, sigBytes, cert, object, sigID)
 
 	// Append signature to a copy of the root
 	result := root.Copy()
@@ -288,4 +298,56 @@ func canonicalizeAndHash(el *etree.Element) ([]byte, error) {
 	}
 	hash := sha256.Sum256(canonical)
 	return hash[:], nil
+}
+
+// ecdsaDERSignature holds the two integers from a DER-encoded ECDSA signature.
+type ecdsaDERSignature struct {
+	R, S *big.Int
+}
+
+// ensureP1363Signature converts an ECDSA signature from DER/ASN.1 encoding to
+// IEEE P1363 format (r||s, each zero-padded to the curve's byte length).
+// For non-ECDSA keys, returns the raw signature unchanged.
+func ensureP1363Signature(raw []byte, pub crypto.PublicKey) ([]byte, error) {
+	ecPub, ok := pub.(*ecdsa.PublicKey)
+	if !ok {
+		return raw, nil
+	}
+
+	var sig ecdsaDERSignature
+	rest, err := asn1.Unmarshal(raw, &sig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal DER ECDSA signature: %w", err)
+	}
+	if len(rest) != 0 {
+		return nil, fmt.Errorf("trailing data after DER ECDSA signature")
+	}
+	if sig.R == nil || sig.S == nil {
+		return nil, fmt.Errorf("invalid ECDSA signature: missing r or s")
+	}
+
+	byteLen := (ecPub.Curve.Params().BitSize + 7) / 8
+	rBytes := sig.R.Bytes()
+	sBytes := sig.S.Bytes()
+	if len(rBytes) > byteLen || len(sBytes) > byteLen {
+		return nil, fmt.Errorf("invalid ECDSA signature: r/s too large for curve")
+	}
+
+	out := make([]byte, 2*byteLen)
+	copy(out[byteLen-len(rBytes):byteLen], rBytes)
+	copy(out[2*byteLen-len(sBytes):], sBytes)
+
+	return out, nil
+}
+
+// p1363ToDER converts an IEEE P1363 ECDSA signature (r||s) to DER/ASN.1 encoding.
+// This is the inverse of ensureP1363Signature.
+func p1363ToDER(p1363 []byte, curve elliptic.Curve) ([]byte, error) {
+	byteLen := (curve.Params().BitSize + 7) / 8
+	if len(p1363) != 2*byteLen {
+		return nil, fmt.Errorf("P1363 signature has wrong length: got %d, want %d", len(p1363), 2*byteLen)
+	}
+	r := new(big.Int).SetBytes(p1363[:byteLen])
+	s := new(big.Int).SetBytes(p1363[byteLen:])
+	return asn1.Marshal(ecdsaDERSignature{R: r, S: s})
 }

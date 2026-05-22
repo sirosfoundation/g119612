@@ -52,11 +52,12 @@ type CertificateMetadata struct {
 
 // SchemeMetadata represents the YAML structure for the TSL scheme metadata
 type SchemeMetadata struct {
-	OperatorNames      []MultiLangName `yaml:"operatorNames"`                // At least one name required
-	Type               string          `yaml:"type"`                         // URI identifying the TSL type
-	SequenceNumber     int             `yaml:"sequenceNumber,omitempty"`     // TSL sequence number
-	Id                 string          `yaml:"id,omitempty"`                 // Optional TSL Id attribute
-	DistributionPoints []string        `yaml:"distributionPoints,omitempty"` // Optional distribution point URIs
+	OperatorNames      []MultiLangName `yaml:"operatorNames"`                 // At least one name required
+	Type               string          `yaml:"type"`                          // URI identifying the TSL type
+	SequenceNumber     int             `yaml:"sequenceNumber,omitempty"`      // TSL sequence number
+	Id                 string          `yaml:"id,omitempty"`                  // Optional TSL Id attribute
+	Territory          string          `yaml:"territory,omitempty"`           // Optional scheme territory (e.g., "EU", "SE")
+	DistributionPoints []string        `yaml:"distributionPoints,omitempty"`  // Optional distribution point URIs
 }
 
 // TslId returns the TSL Id attribute value.
@@ -445,6 +446,7 @@ func GenerateTSL(pl *Pipeline, ctx *Context, args ...string) (*Context, error) {
 	schemeInfo := &etsi119612.TSLSchemeInformationType{
 		TSLVersionIdentifier: int(schemeMetadata.SequenceNumber),
 		TslTSLType:           schemeMetadata.Type,
+		TslSchemeTerritory:   schemeMetadata.Territory,
 		ListIssueDateTime:    time.Now().UTC().Format(time.RFC3339),
 		TslNextUpdate: &etsi119612.NextUpdateType{
 			DateTime: time.Now().UTC().Add(180 * 24 * time.Hour).Format(time.RFC3339),
