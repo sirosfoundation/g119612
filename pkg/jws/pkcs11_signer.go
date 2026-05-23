@@ -43,7 +43,7 @@ func (s *PKCS11Signer) SetKeyID(id string) {
 	s.keyID = id
 }
 
-// SetJAdES enables or disables JAdES-B-B compliant headers (sigT, x5t#S256).
+// SetJAdES enables or disables JAdES-B-B compliant headers (iat, x5t#S256).
 func (s *PKCS11Signer) SetJAdES(enabled bool) {
 	s.jades = enabled
 }

@@ -203,13 +203,23 @@ func TestFileSigner_JAdES_Headers(t *testing.T) {
 	require.Len(t, parsed.Signatures, 1)
 
 	headers := parsed.Signatures[0].Protected
-	// sigT must be present and be a valid RFC 3339 timestamp
-	sigT, ok := headers.ExtraHeaders["sigT"]
-	assert.True(t, ok, "sigT header must be present for JAdES-B-B")
-	sigTStr, ok := sigT.(string)
-	assert.True(t, ok, "sigT must be a string")
-	_, err = time.Parse(time.RFC3339, sigTStr)
-	assert.NoError(t, err, "sigT must be valid RFC 3339")
+	// iat must be present and be a NumericDate value (Unix timestamp)
+	iat, ok := headers.ExtraHeaders["iat"]
+	assert.True(t, ok, "iat header must be present for JAdES-B-B")
+	var iatUnix int64
+	switch v := iat.(type) {
+	case float64:
+		iatUnix = int64(v)
+	case int64:
+		iatUnix = v
+	default:
+		t.Fatalf("iat must be numeric, got %T", iat)
+	}
+	nowUnix := time.Now().UTC().Unix()
+	assert.LessOrEqual(t, iatUnix, nowUnix+1, "iat must not be in the future")
+	assert.GreaterOrEqual(t, iatUnix, nowUnix-120, "iat must be a recent timestamp")
+	_, hasSigT := headers.ExtraHeaders["sigT"]
+	assert.False(t, hasSigT, "sigT header must not be present for JAdES-B-B")
 
 	// x5t#S256 must be present
 	thumbprint, ok := headers.ExtraHeaders["x5t#S256"]
@@ -245,6 +255,8 @@ func TestFileSigner_JAdES_Disabled(t *testing.T) {
 	headers := parsed.Signatures[0].Protected
 	_, hasSigT := headers.ExtraHeaders["sigT"]
 	assert.False(t, hasSigT, "sigT must not be present when JAdES is disabled")
+	_, hasIAT := headers.ExtraHeaders["iat"]
+	assert.False(t, hasIAT, "iat must not be present when JAdES is disabled")
 	_, hasThumb := headers.ExtraHeaders["x5t#S256"]
 	assert.False(t, hasThumb, "x5t#S256 must not be present when JAdES is disabled")
 
