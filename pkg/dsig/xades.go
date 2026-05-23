@@ -228,8 +228,6 @@ func buildSignatureElement(signedInfo *etree.Element, rawSignature []byte, cert 
 	sig.CreateAttr("xmlns:ds", dsigNamespace)
 	sig.CreateAttr("Id", sigID)
 
-	// Remove the temporary xmlns:ds from SignedInfo (it's inherited from Signature)
-	signedInfo.RemoveAttr("xmlns:ds")
 	sig.AddChild(signedInfo)
 
 	// SignatureValue
