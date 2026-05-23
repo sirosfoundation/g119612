@@ -4,7 +4,7 @@
 // integrity protection as required by ETSI TS 119 602.
 //
 // By default, signatures are produced in JAdES-B-B profile (ETSI TS 119 182-1),
-// which adds sigT (signing time) and x5t#S256 (certificate thumbprint) headers
+// which adds iat (signing time) and x5t#S256 (certificate thumbprint) headers
 // to the standard JWS protected header.
 package jws
 
@@ -84,7 +84,7 @@ func NewFileSigner(certFile, keyFile string) (*FileSigner, error) {
 	}, nil
 }
 
-// SetJAdES enables or disables JAdES-B-B compliant headers (sigT, x5t#S256).
+// SetJAdES enables or disables JAdES-B-B compliant headers (iat, x5t#S256).
 func (s *FileSigner) SetJAdES(enabled bool) {
 	s.jades = enabled
 }
@@ -113,8 +113,8 @@ func (s *FileSigner) Sign(payload []byte) (string, error) {
 
 // addJAdESHeaders adds ETSI TS 119 182-1 JAdES-B-B required headers to the signer options.
 func addJAdESHeaders(opts *jose.SignerOptions, cert *x509.Certificate) {
-	// sigT: signing time as RFC 3339 UTC (ETSI TS 119 182-1 §5.2.8)
-	opts.WithHeader("sigT", time.Now().UTC().Format(time.RFC3339))
+	// iat: signing time as NumericDate (Unix time) per RFC 7519 / ETSI TS 119 182-1
+	opts.WithHeader("iat", time.Now().UTC().Unix())
 
 	// x5t#S256: SHA-256 thumbprint of the signing certificate (ETSI TS 119 182-1 §5.2.2)
 	thumbprint := sha256.Sum256(cert.Raw)
