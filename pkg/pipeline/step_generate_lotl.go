@@ -109,7 +109,7 @@ func GenerateLoTL(pl *Pipeline, ctx *Context, args ...string) (*Context, error) 
 		}
 
 		pointer := etsi119602.OtherLoTEPointer{
-			LoTELocation:              pm.Location,
+			LoTELocation:             pm.Location,
 			ServiceDigitalIdentities: []etsi119602.ServiceDigitalIdentity{},
 			LoTEQualifiers: []etsi119602.LoTEQualifier{{
 				SchemeTerritory:    pm.SchemeTerritory,
