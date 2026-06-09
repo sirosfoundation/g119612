@@ -1,9 +1,12 @@
 on: [push, pull_request]
 name: Test
-permissions: write-all
+permissions:
+  contents: read
 jobs:
   test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
     - uses: actions/checkout@v6
     - uses: actions/setup-go@v6
