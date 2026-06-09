@@ -15,8 +15,10 @@ runs:
     - name: Determine version
       id: version
       shell: bash
+      env:
+        INPUT_VERSION: ${{ inputs.version }}
       run: |
-        VERSION="${{ inputs.version }}"
+        VERSION="$INPUT_VERSION"
         if [ "$VERSION" = "latest" ]; then
           # Follow the /latest redirect to get the tag name from the URL
           VERSION=$(curl -sfLI -o /dev/null -w '%{url_effective}' \
