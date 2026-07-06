@@ -4,7 +4,7 @@ go 1.26
 
 require (
 	github.com/PuerkitoBio/goquery v1.12.0
-	github.com/ThalesGroup/crypto11 v1.6.0
+	github.com/ThalesGroup/crypto11 v1.6.1
 	github.com/beevik/etree v1.6.0
 	github.com/go-jose/go-jose/v4 v4.1.4
 	github.com/h2non/gock v1.2.0
