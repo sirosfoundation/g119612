@@ -2,6 +2,7 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/sirosfoundation/g119612.svg)](https://pkg.go.dev/github.com/sirosfoundation/g119612)
 [![Go Report Card](https://goreportcard.com/badge/github.com/sirosfoundation/g119612)](https://goreportcard.com/report/github.com/sirosfoundation/g119612)
 ![coverage](https://raw.githubusercontent.com/sirosfoundation/g119612/badges/.badges/main/coverage.svg)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/sirosfoundation/g119612/badge)](https://scorecard.dev/viewer/?uri=github.com/sirosfoundation/g119612)
 [![License](https://img.shields.io/badge/License-BSD_2--Clause-orange.svg)](https://opensource.org/licenses/BSD-2-Clause)
 
 # golang ETSI Trust Lists (TS 119 612 + TS 119 602)
