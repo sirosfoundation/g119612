@@ -262,3 +262,87 @@ informationURI:
 	assert.Equal(t, "http://uri.etsi.org/TrstSvc/TrustedList/Svcstatus/granted",
 		lote.TrustedEntitiesList[0].TrustedEntityServices[0].ServiceInformation.ServiceStatus)
 }
+
+// writeMinimalScheme creates a list directory containing only scheme.yaml,
+// which is enough for GenerateLoTE to produce an entity-less LoTE.
+func writeMinimalScheme(t *testing.T, extra string) string {
+	t.Helper()
+	dir := t.TempDir()
+	schemeYAML := `operatorNames:
+  - language: en
+    value: "Test Operator"
+schemeType: "http://example.com/lote"
+territory: SE
+sequenceNumber: 1
+` + extra
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "scheme.yaml"), []byte(schemeYAML), 0644))
+	return dir
+}
+
+func TestGenerateLoTE_DistributionPoints(t *testing.T) {
+	dir := writeMinimalScheme(t, `distributionPoints:
+  - "https://trust.example.com/my-list.xml"
+`)
+
+	ctx := NewContext()
+	ctx, err := GenerateLoTE(nil, ctx, dir)
+	require.NoError(t, err)
+
+	lote := ctx.GetLoTEs()[0]
+	assert.Equal(t,
+		[]string{"https://trust.example.com/my-list.xml"},
+		lote.ListAndSchemeInformation.DistributionPoints)
+}
+
+// Two schemes sharing a territory would both publish as lote-SE.json and
+// silently overwrite one another; a distribution point gives each its own
+// filename. This is the whole reason the field is plumbed through.
+func TestGenerateLoTE_DistributionPointDrivesFilename(t *testing.T) {
+	outDir := t.TempDir()
+	ctx := NewContext()
+
+	for _, name := range []string{"first", "second"} {
+		dir := writeMinimalScheme(t, `distributionPoints:
+  - "https://trust.example.com/`+name+`.xml"
+`)
+		var err error
+		ctx, err = GenerateLoTE(nil, ctx, dir)
+		require.NoError(t, err)
+	}
+
+	_, err := PublishLoTE(nil, ctx, outDir)
+	require.NoError(t, err)
+
+	for _, name := range []string{"first", "second"} {
+		assert.FileExists(t, filepath.Join(outDir, name+".json"))
+	}
+	assert.NoFileExists(t, filepath.Join(outDir, "lote-SE.json"),
+		"territory-derived name should not be used when a distribution point is set")
+}
+
+func TestGenerateLoTE_InvalidDistributionPoint(t *testing.T) {
+	dir := writeMinimalScheme(t, `distributionPoints:
+  - "not-a-url"
+`)
+
+	ctx := NewContext()
+	_, err := GenerateLoTE(nil, ctx, dir)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid distributionPoint")
+}
+
+// Without a distribution point the territory-derived name must still apply,
+// so existing lists keep their published filenames.
+func TestGenerateLoTE_NoDistributionPointsKeepsTerritoryName(t *testing.T) {
+	dir := writeMinimalScheme(t, "")
+	outDir := t.TempDir()
+
+	ctx := NewContext()
+	ctx, err := GenerateLoTE(nil, ctx, dir)
+	require.NoError(t, err)
+	assert.Empty(t, ctx.GetLoTEs()[0].ListAndSchemeInformation.DistributionPoints)
+
+	_, err = PublishLoTE(nil, ctx, outDir)
+	require.NoError(t, err)
+	assert.FileExists(t, filepath.Join(outDir, "lote-SE.json"))
+}
