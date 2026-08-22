@@ -10,7 +10,15 @@ import (
 	"github.com/stretchr/testify/assert"
 	"os"
 	"testing"
+	"time"
 )
+
+// x5cTestTime pins chain verification to a point inside the fixtures'
+// validity window. The Sunet test leaves in testdata are one-year certs
+// issued in June 2025, so verifying against the wall clock made these tests
+// start failing on 2026-06-26 regardless of the code under test. What is
+// being tested here is trust-list-driven path building, not expiry.
+var x5cTestTime = time.Date(2025, 9, 1, 0, 0, 0, 0, time.UTC)
 
 type JWTCertBundle struct {
 	Alg string   `json:"alg"`
@@ -50,7 +58,7 @@ func TestLeafRootCertVerificationSuccess(t *testing.T) {
 	leafCert, err := x509.ParseCertificate(leafDER)
 	assert.NoError(t, err)
 	_, err = leafCert.Verify(x509.VerifyOptions{
-		Roots: pool})
+		Roots: pool, CurrentTime: x5cTestTime})
 	if err != nil {
 		t.Errorf("Chain verification failed %v", err)
 	} else {
@@ -98,7 +106,7 @@ func TestLeafIntermediateRootCertVerificationSuccess(t *testing.T) {
 	intermediatePool := x509.NewCertPool()
 	intermediatePool.AddCert(interCert)
 	_, err = leafCert.Verify(x509.VerifyOptions{
-		Roots: pool, Intermediates: intermediatePool})
+		Roots: pool, Intermediates: intermediatePool, CurrentTime: x5cTestTime})
 	if err != nil {
 		t.Errorf("Chain verification failed %v", err)
 	} else {
@@ -132,7 +140,7 @@ func TestLeafRootCertVerificationSuccessEmptyServiceTypeIdentifier(t *testing.T)
 	leafCert, err := x509.ParseCertificate(leafDER)
 	assert.NoError(t, err)
 	_, err = leafCert.Verify(x509.VerifyOptions{
-		Roots: pool})
+		Roots: pool, CurrentTime: x5cTestTime})
 	if err != nil {
 		t.Errorf("Chain verification failed %v", err)
 	} else {
@@ -167,7 +175,7 @@ func TestLeafRootCertVerificationSuccessTLWithSignature(t *testing.T) {
 	leafCert, err := x509.ParseCertificate(leafDER)
 	assert.NoError(t, err)
 	_, err = leafCert.Verify(x509.VerifyOptions{
-		Roots: pool})
+		Roots: pool, CurrentTime: x5cTestTime})
 	if err != nil {
 		t.Errorf("Chain verification failed %v", err)
 	} else {
@@ -207,7 +215,7 @@ func TestServiceStatusOtherThanGrantedStatusError(t *testing.T) {
 	leafCert, err := x509.ParseCertificate(leafDER)
 	assert.NoError(t, err)
 	_, err = leafCert.Verify(x509.VerifyOptions{
-		Roots: pool})
+		Roots: pool, CurrentTime: x5cTestTime})
 	assert.Error(t, err, "status is not recognized or granted")
 }
 func TestServiceStatusOneOfInTheListSuccess(t *testing.T) {
@@ -238,7 +246,7 @@ func TestServiceStatusOneOfInTheListSuccess(t *testing.T) {
 	leafCert, err := x509.ParseCertificate(leafDER)
 	assert.NoError(t, err)
 	_, err = leafCert.Verify(x509.VerifyOptions{
-		Roots: pool})
+		Roots: pool, CurrentTime: x5cTestTime})
 	if err != nil {
 		t.Errorf("Chain verification failed %v", err)
 	} else {
