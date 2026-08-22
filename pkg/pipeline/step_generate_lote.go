@@ -13,6 +13,7 @@ import (
 
 	"github.com/sirosfoundation/g119612/pkg/etsi119602"
 	"github.com/sirosfoundation/g119612/pkg/logging"
+	"github.com/sirosfoundation/g119612/pkg/validation"
 	"gopkg.in/yaml.v3"
 )
 
@@ -24,6 +25,13 @@ type LoTESchemeMetadata struct {
 	Territory      string          `yaml:"territory,omitempty"`
 	SequenceNumber int             `yaml:"sequenceNumber,omitempty"`
 	ValidityDays   int             `yaml:"validityDays,omitempty"`
+
+	// DistributionPoints lists the URIs the published list is served from
+	// (ETSI TS 119 602 LoTEDistributionPoints). Beyond appearing in the
+	// document, the first entry determines the output filename in
+	// publish-lote, so schemes that share a territory need one here to
+	// avoid overwriting each other.
+	DistributionPoints []string `yaml:"distributionPoints,omitempty"`
 }
 
 // LoTEEntityMetadata represents the YAML structure for a trusted entity.
@@ -87,6 +95,11 @@ func GenerateLoTE(pl *Pipeline, ctx *Context, args ...string) (*Context, error) 
 	if scheme.SchemeType == "" {
 		return nil, fmt.Errorf("scheme.yaml must have a schemeType")
 	}
+	for _, dp := range scheme.DistributionPoints {
+		if err := validation.ValidateURL(dp, validation.TSLURLOptions()); err != nil {
+			return nil, fmt.Errorf("invalid distributionPoint %q in scheme.yaml: %w", dp, err)
+		}
+	}
 
 	now := time.Now().UTC()
 	validityDays := scheme.ValidityDays
@@ -107,6 +120,7 @@ func GenerateLoTE(pl *Pipeline, ctx *Context, args ...string) (*Context, error) 
 			LoTESequenceNumber:    scheme.SequenceNumber,
 			ListIssueDateTime:     now.Format(time.RFC3339),
 			NextUpdate:            nextUpdate.Format(time.RFC3339),
+			DistributionPoints:    scheme.DistributionPoints,
 		},
 	}
 
