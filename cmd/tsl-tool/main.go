@@ -59,12 +59,15 @@ package main
 
 import (
 	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/pem"
 	"flag"
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
+	"github.com/sirosfoundation/g119612/pkg/dsig"
 	"github.com/sirosfoundation/g119612/pkg/etsi119612"
 	"github.com/sirosfoundation/g119612/pkg/logging"
 	"github.com/sirosfoundation/g119612/pkg/pipeline"
@@ -151,12 +154,70 @@ See: https://github.com/sirosfoundation/g119612
 `, prog, prog, prog)
 }
 
+// runSelfSignCert issues a self-signed certificate for a key pair that already
+// exists in a PKCS#11 token, so the certificate and the signing key cannot
+// disagree. See dsig.SelfSignCertificate for why this is not done with openssl.
+func runSelfSignCert(pkcs11URI, keyLabel, keyID, certLabel, subject string, days int, outputFile string) error {
+	if pkcs11URI == "" {
+		return fmt.Errorf("-pkcs11-uri is required with -selfsign-cert")
+	}
+	if subject == "" {
+		return fmt.Errorf("-subject is required with -selfsign-cert")
+	}
+	if days <= 0 {
+		return fmt.Errorf("-days must be positive, got %d", days)
+	}
+
+	config := dsig.ExtractPKCS11Config(pkcs11URI)
+	if config == nil {
+		return fmt.Errorf("invalid PKCS#11 URI")
+	}
+
+	cert, pemBytes, err := dsig.SelfSignCertificate(config, dsig.SelfSignedCertOptions{
+		KeyLabel:  keyLabel,
+		KeyID:     keyID,
+		CertLabel: certLabel,
+		Subject:   pkix.Name{CommonName: subject},
+		Validity:  time.Duration(days) * 24 * time.Hour,
+	})
+	if err != nil {
+		return err
+	}
+
+	if outputFile != "" {
+		if err := os.WriteFile(outputFile, pemBytes, 0644); err != nil {
+			return fmt.Errorf("failed to write certificate to %s: %w", outputFile, err)
+		}
+		fmt.Fprintf(os.Stderr, "Wrote certificate to %s\n", outputFile)
+	} else {
+		if _, err := os.Stdout.Write(pemBytes); err != nil {
+			return fmt.Errorf("failed to write certificate: %w", err)
+		}
+	}
+
+	fmt.Fprintf(os.Stderr, "Subject:   %s\n", cert.Subject)
+	fmt.Fprintf(os.Stderr, "Serial:    %s\n", cert.SerialNumber)
+	fmt.Fprintf(os.Stderr, "Not after: %s\n", cert.NotAfter.Format(time.RFC3339))
+	if certLabel != "" {
+		fmt.Fprintf(os.Stderr, "Stored in token under label %q\n", certLabel)
+	}
+	return nil
+}
+
 func main() {
 	showHelp := flag.Bool("help", false, "Show help message")
 	showVersion := flag.Bool("version", false, "Show version information")
 	logLevel := flag.String("log-level", "info", "Logging level: debug, info, warn, error")
 	logFormat := flag.String("log-format", "text", "Logging format: text or json")
 	outputFile := flag.String("output", "", "Write certificate pool PEM to file")
+
+	selfSignCert := flag.Bool("selfsign-cert", false, "Issue a self-signed certificate for an existing PKCS#11 key instead of running a pipeline")
+	pkcs11URI := flag.String("pkcs11-uri", "", "PKCS#11 URI (with -selfsign-cert)")
+	keyLabel := flag.String("key-label", "signing-key", "PKCS#11 key label (with -selfsign-cert)")
+	keyID := flag.String("key-id", "01", "PKCS#11 key ID in hex (with -selfsign-cert)")
+	certLabel := flag.String("cert-label", "", "Store the certificate in the token under this label (with -selfsign-cert)")
+	subject := flag.String("subject", "", "Certificate common name (with -selfsign-cert)")
+	days := flag.Int("days", 1095, "Certificate validity in days (with -selfsign-cert)")
 
 	flag.Usage = usage
 	flag.Parse()
@@ -168,6 +229,14 @@ func main() {
 
 	if *showVersion {
 		fmt.Printf("tsl-tool version %s\n", Version)
+		os.Exit(0)
+	}
+
+	if *selfSignCert {
+		if err := runSelfSignCert(*pkcs11URI, *keyLabel, *keyID, *certLabel, *subject, *days, *outputFile); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
 		os.Exit(0)
 	}
 
