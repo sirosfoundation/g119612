@@ -8,6 +8,7 @@
 package etsi119602
 
 import (
+	"bytes"
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
@@ -53,11 +54,40 @@ func (l *ListOfTrustedEntities) EncodeXMLToFile(path string) error {
 
 // ParseLoTEXML parses a LoTE from XML bytes.
 func ParseLoTEXML(data []byte) (*ListOfTrustedEntities, error) {
+	if err := checkLoTEXMLRoot(data); err != nil {
+		return nil, err
+	}
 	var x xmltypes.ListOfTrustedEntitiesType
 	if err := xml.Unmarshal(data, &x); err != nil {
 		return nil, fmt.Errorf("failed to parse LoTE XML: %w", err)
 	}
 	return fromXMLLoTE(&x)
+}
+
+// checkLoTEXMLRoot rejects documents whose root element is not a LoTE or LoTL.
+// encoding/xml ignores the root name when unmarshaling into a struct without an
+// XMLName field, so a TS 119 612 TrustServiceStatusList would otherwise parse
+// as an empty list instead of failing.
+func checkLoTEXMLRoot(data []byte) error {
+	dec := xml.NewDecoder(bytes.NewReader(data))
+	for {
+		tok, err := dec.Token()
+		if err != nil {
+			return fmt.Errorf("failed to parse LoTE XML: %w", err)
+		}
+		start, ok := tok.(xml.StartElement)
+		if !ok {
+			continue
+		}
+		switch start.Name.Local {
+		case "TrustedEntitiesList", "ListOfTrustedEntities":
+			return nil
+		case "TrustServiceStatusList":
+			return fmt.Errorf("failed to parse LoTE XML: root element is a TS 119 612 TrustServiceStatusList, not a TS 119 602 list")
+		default:
+			return fmt.Errorf("failed to parse LoTE XML: unexpected root element %q", start.Name.Local)
+		}
+	}
 }
 
 // ParseLoTEXMLFromFile loads and parses a LoTE from an XML file.
