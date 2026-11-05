@@ -3,6 +3,7 @@ package etsi119602
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -155,4 +156,18 @@ func TestXML_PolicyRoundTrip(t *testing.T) {
 	assert.NotNil(t, parsed.ListAndSchemeInformation.PolicyOrLegalNotice[0].LoTEPolicy)
 	assert.Equal(t, "https://policy.example.com", parsed.ListAndSchemeInformation.PolicyOrLegalNotice[0].LoTEPolicy.URIValue)
 	assert.Equal(t, "Legal notice text", parsed.ListAndSchemeInformation.PolicyOrLegalNotice[1].LoTELegalNotice)
+}
+
+func TestParseLoTEXML_RejectsOtherRootElements(t *testing.T) {
+	tsl := []byte(`<?xml version="1.0"?><TrustServiceStatusList xmlns="http://uri.etsi.org/02231/v2#"><SchemeInformation/></TrustServiceStatusList>`)
+	_, err := ParseLoTEXML(tsl)
+	if err == nil || !strings.Contains(err.Error(), "TS 119 612") {
+		t.Fatalf("expected a TS 119 612 root error, got %v", err)
+	}
+	if _, err := ParseLoTLXML(tsl); err == nil {
+		t.Fatal("ParseLoTLXML must reject a TSL as well")
+	}
+	if _, err := ParseLoTEXML([]byte(`<html/>`)); err == nil {
+		t.Fatal("expected an error for an unrelated root element")
+	}
 }
