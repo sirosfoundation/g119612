@@ -1,6 +1,6 @@
 module github.com/sirosfoundation/g119612
 
-go 1.26
+go 1.26.0
 
 require (
 	github.com/PuerkitoBio/goquery v1.13.0
@@ -27,9 +27,9 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/thales-e-security/pool v0.0.2 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
-	golang.org/x/crypto v0.55.0 // indirect
-	golang.org/x/net v0.58.0 // indirect
-	golang.org/x/sys v0.47.0 // indirect
+	golang.org/x/crypto v0.58.0 // indirect
+	golang.org/x/net v0.62.0 // indirect
+	golang.org/x/sys v0.49.0 // indirect
 )
 
 replace github.com/moov-io/signedxml v1.2.3 => github.com/sirosfoundation/signedxml v1.4.0-siros1
