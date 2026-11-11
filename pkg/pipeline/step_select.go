@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/sirosfoundation/g119612/pkg/etsi119602"
 	"github.com/sirosfoundation/g119612/pkg/etsi119612"
 	"github.com/sirosfoundation/g119612/pkg/logging"
 )
@@ -106,7 +107,7 @@ func SelectCertPool(pl *Pipeline, ctx *Context, args ...string) (*Context, error
 			serviceTypeMatch := false
 			serviceType := svc.TslServiceInformation.TslServiceTypeIdentifier
 			for _, filter := range serviceTypeFilters {
-				if serviceType == filter {
+				if etsi119602.NormalizeServiceTypeURI(serviceType) == etsi119602.NormalizeServiceTypeURI(filter) {
 					serviceTypeMatch = true
 					break
 				}
@@ -123,7 +124,7 @@ func SelectCertPool(pl *Pipeline, ctx *Context, args ...string) (*Context, error
 			if useStatusAndLogic {
 				// AND logic: certificate must match ALL status filters
 				for _, filter := range statusFilters {
-					if status != filter {
+					if !etsi119602.StatusEquals(status, filter) {
 						// If any filter doesn't match, skip this certificate
 						return
 					}
@@ -132,7 +133,7 @@ func SelectCertPool(pl *Pipeline, ctx *Context, args ...string) (*Context, error
 				// OR logic (default): certificate must match ANY status filter
 				statusMatch := false
 				for _, filter := range statusFilters {
-					if status == filter {
+					if etsi119602.StatusEquals(status, filter) {
 						statusMatch = true
 						break
 					}
