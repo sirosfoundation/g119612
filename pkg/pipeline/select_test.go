@@ -125,3 +125,39 @@ func createTestTSLWithCert(cert *x509.Certificate, serviceType, status string) *
 }
 
 // Using TestCertBase64 and TestCert from test_utils.go
+
+// ETSI TSLs spell the same status/service-type URI differently (http vs
+// https, trailing slash); select must treat the variants as equal.
+func TestSelectCertPoolNormalizesURIs(t *testing.T) {
+	const (
+		svcType = "https://uri.etsi.org/TrstSvc/Svctype/CA/QC/"
+		granted = "https://uri.etsi.org/TrstSvc/TrustedList/Svcstatus/granted/"
+	)
+	tests := []struct {
+		name   string
+		args   []string
+		expect bool
+	}{
+		{"status http without slash", []string{"status:http://uri.etsi.org/TrstSvc/TrustedList/Svcstatus/granted"}, true},
+		{"status identical", []string{"status:" + granted}, true},
+		{"service type http without slash", []string{"service-type:http://uri.etsi.org/TrstSvc/Svctype/CA/QC"}, true},
+		{"both", []string{"service-type:http://uri.etsi.org/TrstSvc/Svctype/CA/QC", "status:http://uri.etsi.org/TrstSvc/TrustedList/Svcstatus/granted", "status-logic:and"}, true},
+		{"different status", []string{"status:http://uri.etsi.org/TrstSvc/TrustedList/Svcstatus/withdrawn"}, false},
+		{"different service type", []string{"service-type:http://uri.etsi.org/TrstSvc/Svctype/CA/PKC"}, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pl := &Pipeline{Logger: logging.DefaultLogger()}
+			ctx := &Context{}
+			ctx.EnsureTSLStack()
+			ctx.TSLs.Push(createTestTSLWithCert(TestCert, svcType, granted))
+			out, err := SelectCertPool(pl, ctx, tt.args...)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := !out.CertPool.Equal(x509.NewCertPool()); got != tt.expect {
+				t.Errorf("pool populated = %v, want %v", got, tt.expect)
+			}
+		})
+	}
+}
