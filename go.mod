@@ -3,7 +3,7 @@ module github.com/sirosfoundation/g119612
 go 1.27.4
 
 require (
-	github.com/PuerkitoBio/goquery v1.13.0
+	github.com/PuerkitoBio/goquery v1.14.0
 	github.com/ThalesGroup/crypto11 v1.6.1
 	github.com/beevik/etree v1.8.1
 	github.com/go-jose/go-jose/v4 v4.1.9
@@ -18,7 +18,7 @@ require (
 )
 
 require (
-	github.com/andybalholm/cascadia v1.3.4 // indirect
+	github.com/andybalholm/cascadia v1.3.5 // indirect
 	github.com/gematik/zero-lab/go/brainpool v1.1.0 // indirect
 	github.com/h2non/parth v0.0.0-20190131123155-b4df798d6542 // indirect
 	github.com/jonboulle/clockwork v0.5.0 // indirect
